@@ -36,6 +36,7 @@
 // If doing so, simply comment out these two defines and see instructions below.
 //#define DEFAULTS_GENERIC
 #define DEFAULT_CNC3020
+#define STM32F103C8
 #ifdef WIN32
 #define CPU_MAP_WIN32
 #endif
