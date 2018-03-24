@@ -34,8 +34,8 @@
 // NOTE: OEMs can avoid the need to maintain/update the defaults.h and cpu_map.h files and use only
 // one configuration file by placing their specific defaults and pin map at the bottom of this file.
 // If doing so, simply comment out these two defines and see instructions below.
-//#define DEFAULTS_GENERIC
-#define DEFAULT_CNC3020
+#define DEFAULTS_GENERIC
+//#define DEFAULT_CNC3020
 #define STM32F103C8
 #ifdef WIN32
 #define CPU_MAP_WIN32
