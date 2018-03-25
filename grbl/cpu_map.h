@@ -396,7 +396,7 @@
   //   11                                            Y_LIMIT_BIT
   //   12                                            Z_LIMIT_BIT
   //   13                                   SPINDLE_ENABLE_BIT e.g. LO RELAY
- //   14													SPINDLE_DIRECTION_BIT
+ //    14                                   SPINDLE_DIRECTION_BIT
   //   15     PROBE_BIT					
 
 #endif
