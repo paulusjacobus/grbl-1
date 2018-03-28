@@ -27,7 +27,8 @@
 #endif
 
 
-void spindle_init()
+//void spindle_init()
+void spindle_init(uint8_t pwm_mode)
 {
 #ifdef VARIABLE_SPINDLE
   pwm_gradient = SPINDLE_PWM_RANGE / (settings.rpm_max - settings.rpm_min);
@@ -73,8 +74,33 @@ void spindle_init()
   TIM_TimeBaseInitTypeDef timerInitStructure;
   TIM_OCInitTypeDef outputChannelInit = { 0 };
   TIM_TimeBaseStructInit(&timerInitStructure);
-
-  timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000
+  //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000
+	switch (pwm_mode) {
+		case 0: 
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 244Hz
+			break;
+		case 1:
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //dither mode low freq 61Hz
+			break;
+		case 2:
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //smooth high freq 1.9kHz
+			break;
+		case 3:
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //ultra smooth highest freq 15kHz
+			break;
+		case 4:
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 122Hz
+			break;	
+		case 5:
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 1kHz
+			break;
+		case 6:
+			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 7.5kHz
+			break;
+		default:
+			break;
+	}	
+	
   timerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
   timerInitStructure.TIM_Period = SPINDLE_PWM_MAX_VALUE - 1;
   timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
