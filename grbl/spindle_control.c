@@ -81,7 +81,7 @@ void spindle_init()
   timerInitStructure.TIM_RepetitionCounter = 0;
   TIM_TimeBaseInit(TIM1, &timerInitStructure);
 
-  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1;
+  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1; //or PWM0
   outputChannelInit.TIM_Pulse = 0;     // initi speed is 0
   outputChannelInit.TIM_OutputState = TIM_OutputState_Enable;
   outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
@@ -92,7 +92,7 @@ void spindle_init()
   TIM_Cmd(TIM1, ENABLE);
 
   RCC_APB2PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE);
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;//GPIO_Speed_2MHz or 10MHz
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
   GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_PWM_BIT;
   GPIO_Init(SPINDLE_PWM_PORT, &GPIO_InitStructure);
