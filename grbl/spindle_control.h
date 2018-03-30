@@ -32,7 +32,7 @@
 
 // Initializes spindle pins and hardware PWM, if enabled.
 //void spindle_init();
-void spindle_sync(uint8_t state, float rpm);
+void spindle_init(uint8_t pwm_mode);
 
 // Returns current spindle output state. Overrides may alter it from programmed states.
 uint8_t spindle_get_state();
