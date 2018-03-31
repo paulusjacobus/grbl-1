@@ -77,25 +77,25 @@ void spindle_init(uint8_t pwm_mode)
   //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000
 	switch (pwm_mode) {
 		case 0: 
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 244Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 491520 - 1; //F_CPU /(240Hz*2048steps)-1 default setting medium freq 240Hz
 			break;
 		case 1:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //dither mode low freq 61Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 245760 - 1; //dither mode low freq 120Hz
 			break;
 		case 2:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //smooth high freq 1.9kHz
+			timerInitStructure.TIM_Prescaler = F_CPU / 614400 - 1; //smooth high freq 300Hz
 			break;
 		case 3:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //ultra smooth highest freq 15kHz
+			timerInitStructure.TIM_Prescaler = F_CPU / 819200 - 1; //ultra smooth highest freq 400Hz
 			break;
 		case 4:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 122Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 1024000 - 1; //default setting medium freq 500Hz
 			break;	
 		case 5:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 1kHz
+			timerInitStructure.TIM_Prescaler = F_CPU / 2048000 - 1; //default setting medium freq 1kHz
 			break;
 		case 6:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 7.5kHz
+			timerInitStructure.TIM_Prescaler = F_CPU / 3072000 - 1; //default setting medium freq 1.5kHz
 			break;
 		default:
 			break;
