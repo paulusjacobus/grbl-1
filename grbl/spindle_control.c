@@ -58,9 +58,15 @@ void spindle_init(uint8_t pwm_mode)
 #endif
 #if defined (STM32F103C8)
 	GPIO_InitTypeDef GPIO_InitStructure;
-	RCC_APB2PeriphClockCmd(RCC_SPINDLE_ENABLE_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	//RCC_APB2PeriphClockCmd(RCC_SPINDLE_ENABLE_PORT, ENABLE);
+	//GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	//GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+        GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+        GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+        GPIO_Init(GPIOB, &gpioStructure);
+	
 #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
   GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_ENABLE_BIT;
 #else
@@ -70,10 +76,11 @@ void spindle_init(uint8_t pwm_mode)
 
 
 #ifdef VARIABLE_SPINDLE
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
+  //RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
   TIM_TimeBaseInitTypeDef timerInitStructure;
   TIM_OCInitTypeDef outputChannelInit = { 0 };
-  TIM_TimeBaseStructInit(&timerInitStructure);
+  TIM_TimeBaseStructInit(&timerInitStructure);	
+	
   //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000
 	switch (pwm_mode) {
 		case 0: 
@@ -113,13 +120,19 @@ void spindle_init(uint8_t pwm_mode)
   outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
 
   TIM_OC1Init(TIM1, &outputChannelInit);
+  //	
+  // newly added
+  TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
+  GPIO_PinAFConfig(GPIOB, GPIO_PinSource9, GPIO_AF_TIM4); // config alternate function on GPIOB pin 9
+  // end newly added
+  //	
   TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
   TIM_CtrlPWMOutputs(TIM1, DISABLE);
   TIM_Cmd(TIM1, ENABLE);
 
   RCC_APB2PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE);
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;//GPIO_Speed_2MHz or 10MHz
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; // alternate function and push/pull
   GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_PWM_BIT;
   GPIO_Init(SPINDLE_PWM_PORT, &GPIO_InitStructure);
 
