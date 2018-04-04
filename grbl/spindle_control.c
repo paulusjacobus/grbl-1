@@ -76,7 +76,8 @@ void spindle_init(uint8_t pwm_mode)
 
 
 #ifdef VARIABLE_SPINDLE
-  //RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
+  //RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE); // move to timer4
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);	// Timer 4 is on APB1
   TIM_TimeBaseInitTypeDef timerInitStructure;
   TIM_OCInitTypeDef outputChannelInit = { 0 };
   TIM_TimeBaseStructInit(&timerInitStructure);	
@@ -130,7 +131,8 @@ void spindle_init(uint8_t pwm_mode)
   //	
   TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable); // use timer 4, ch4
   //TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);	
-  TIM_CtrlPWMOutputs(TIM1, DISABLE);
+  //TIM_CtrlPWMOutputs(TIM1, DISABLE); move to TIM4 which has an equivalent
+	
   TIM_Cmd(TIM4, ENABLE); // use timer 4
   //TIM_Cmd(TIM1, ENABLE);
 	
