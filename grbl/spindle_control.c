@@ -115,26 +115,30 @@ void spindle_init(uint8_t pwm_mode)
   timerInitStructure.TIM_RepetitionCounter = 0;
   TIM_TimeBaseInit(TIM1, &timerInitStructure);
 
-  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1; //or PWM0
+  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1; //or PWM0 test this
   outputChannelInit.TIM_Pulse = 0;     // initi speed is 0
   outputChannelInit.TIM_OutputState = TIM_OutputState_Enable;
   outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
 
-  TIM_OC1Init(TIM1, &outputChannelInit); //outputChannel should be 4 for GPIOB, GPIO_pin9
+  //TIM_OC1Init(TIM1, &outputChannelInit); // move to timer 4, channel4
+  TIM_OC4Init(TIM4, &outputChannelInit); 
   //	
-  // newly added
-  TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
-  GPIO_PinAFConfig(GPIOB, SPINDLE_PWM_BIT, GPIO_AF_TIM4); // config alternate function on GPIOB pin 9
+  // newly added for test purposes only
+  //TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
+  //GPIO_PinAFConfig(GPIOB, SPINDLE_PWM_BIT, GPIO_AF_TIM4); // config alternate function on GPIOB pin 9
   // end newly added
   //	
-  TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
+  TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable); // use timer 4, ch4
+  //TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);	
   TIM_CtrlPWMOutputs(TIM1, DISABLE);
-  TIM_Cmd(TIM1, ENABLE);
-
-  RCC_APB2PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE);
+  TIM_Cmd(TIM4, ENABLE); // use timer 4
+  //TIM_Cmd(TIM1, ENABLE);
+	
+  RCC_APB1PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE); // GPIO pin is on APB1
+  //RCC_APB2PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE);	
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;//GPIO_Speed_2MHz or 10MHz
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; // alternate function and push/pull
-  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_PWM_BIT;
+  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_PWM_BIT; // or GPIO_Pin_9
   GPIO_Init(SPINDLE_PWM_PORT, &GPIO_InitStructure);
 
 
