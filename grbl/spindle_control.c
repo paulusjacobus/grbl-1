@@ -123,7 +123,7 @@ void spindle_init(uint8_t pwm_mode)
   //	
   // newly added
   TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource9, GPIO_AF_TIM4); // config alternate function on GPIOB pin 9
+  GPIO_PinAFConfig(GPIOB, SPINDLE_PWM_BIT, GPIO_AF_TIM4); // config alternate function on GPIOB pin 9
   // end newly added
   //	
   TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);
