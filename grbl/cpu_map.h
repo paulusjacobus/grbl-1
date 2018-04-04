@@ -323,13 +323,13 @@
 #define LIMIT_MASK       ((1<<X_LIMIT_BIT)|(1<<Y_LIMIT_BIT)|(1<<Z_LIMIT_BIT)) // All limit bits
 
   // Define spindle enable and spindle direction output pins.
-#define SPINDLE_ENABLE_PORT   GPIOB
-#define RCC_SPINDLE_ENABLE_PORT RCC_APB2Periph_GPIOB
-#define SPINDLE_ENABLE_BIT    13  // 
+#define SPINDLE_ENABLE_PORT   GPIOC //GPIOB
+#define RCC_SPINDLE_ENABLE_PORT RCC_APB2Periph_GPIOC //RCC_APB2Periph_GPIOB
+#define SPINDLE_ENABLE_BIT    13  // GPIO_Pin_13
 #ifndef USE_SPINDLE_DIR_AS_ENABLE_PIN
 #define SPINDLE_DIRECTION_DDR   GPIOB
 #define SPINDLE_DIRECTION_PORT  GPIOB
-#define SPINDLE_DIRECTION_BIT   14  // 
+#define SPINDLE_DIRECTION_BIT   14  // not used (combined DIR/EN Pin)
 #endif
 #define SetSpindleEnablebit()       GPIO_WriteBit(SPINDLE_ENABLE_PORT, 1 << SPINDLE_ENABLE_BIT, Bit_SET)
 #define ResetSpindleEnablebit()     GPIO_WriteBit(SPINDLE_ENABLE_PORT, 1 << SPINDLE_ENABLE_BIT, Bit_RESET)
@@ -369,10 +369,10 @@
 
   // NOTE: On the 328p, these must be the same as the SPINDLE_ENABLE settings.
 #define SPINDLE_PWM_FREQUENCY       10000                   // KHz
-#define SPINDLE_PWM_DDR	            GPIOA
-#define SPINDLE_PWM_PORT            GPIOA
-#define RCC_SPINDLE_PWM_PORT        RCC_APB2Periph_GPIOA
-#define SPINDLE_PWM_BIT	            8    
+#define SPINDLE_PWM_DDR	            GPIOB //GPIOA
+#define SPINDLE_PWM_PORT            GPIOB //GPIOA
+#define RCC_SPINDLE_PWM_PORT        RCC_APB1Periph_GPIOB //RCC_APB2Periph_GPIOA
+#define SPINDLE_PWM_BIT	            9  // 8    GPIO_Pin_9
 #endif // End of VARIABLE_SPINDLE
 #define SPINDLE_PWM_MAX_VALUE       (1000000 / SPINDLE_PWM_FREQUENCY)
 #ifndef SPINDLE_PWM_MIN_VALUE
@@ -381,22 +381,22 @@
 #define SPINDLE_PWM_OFF_VALUE     0
 #define SPINDLE_PWM_RANGE         (SPINDLE_PWM_MAX_VALUE-SPINDLE_PWM_MIN_VALUE)
 
-  //  Port A                                         Port B
+  //  Port A                                Port B                        Port C
   //   0      X_STEP_BIT                             
   //   1      Y_STEP_BIT                            
   //   2      Z_STEP_BIT                               
-  //   3      X_DIRECTION_BIT                       COOLANT_FLOOD_BIT
-  //   4      Y_DIRECTION_BIT                       COOLANT_MIST_BIT
-  //   5      Z_DIRECTION_BIT                       CONTROL_RESET_BIT
-  //   6      STEPPERS_DISABLE_BIT                  CONTROL_FEED_HOLD_BIT    
-  //   7                                            CONTROL_CYCLE_START_BIT
-  //   8      SPINDLE_PWM_BIT                       CONTROL_SAFETY_DOOR_BIT    
-  //   9                             
-  //   10                                            X_LIMIT_BIT
-  //   11                                            Y_LIMIT_BIT
-  //   12                                            Z_LIMIT_BIT
-  //   13                                   SPINDLE_ENABLE_BIT e.g. LO RELAY
- //    14                                   SPINDLE_DIRECTION_BIT
+  //   3      X_DIRECTION_BIT               COOLANT_FLOOD_BIT
+  //   4      Y_DIRECTION_BIT               COOLANT_MIST_BIT
+  //   5      Z_DIRECTION_BIT               CONTROL_RESET_BIT
+  //   6      STEPPERS_DISABLE_BIT          CONTROL_FEED_HOLD_BIT    
+  //   7                                    CONTROL_CYCLE_START_BIT
+  //   8      XSPINDLE_PWM_BIT(TIM1)*       CONTROL_SAFETY_DOOR_BIT    
+  //   9                                    Spindle_PWM_bit(TIM4,ch4)*
+  //   10                                   X_LIMIT_BIT
+  //   11                                   Y_LIMIT_BIT
+  //   12                                   Z_LIMIT_BIT
+  //   13                                   XSPINDLE_ENABLE_BIT(&)         SPINDLE_ENABLE_BIT(&)
+ //    14                                   XSPINDLE_DIRECTION_BIT(&)
   //   15     PROBE_BIT					
 
 #endif
