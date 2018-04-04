@@ -81,28 +81,28 @@ void spindle_init(uint8_t pwm_mode)
   TIM_OCInitTypeDef outputChannelInit = { 0 };
   TIM_TimeBaseStructInit(&timerInitStructure);	
 	
-  //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000
+  //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000 This parameter can be a number between 0x0000 and 0xFFFF
 	switch (pwm_mode) {
 		case 0: 
-			timerInitStructure.TIM_Prescaler = F_CPU / 491520 - 1; //F_CPU /(240Hz*2048steps)-1 default setting medium freq 240Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 65535 - 1; // default setting medium freq 275Hz
 			break;
 		case 1:
-			timerInitStructure.TIM_Prescaler = F_CPU / 245760 - 1; //dither mode low freq 120Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 32767 - 1; //dither mode low freq 550Hz
 			break;
 		case 2:
-			timerInitStructure.TIM_Prescaler = F_CPU / 614400 - 1; //smooth high freq 300Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 16383 - 1; //smooth high freq 1098Hz
 			break;
 		case 3:
-			timerInitStructure.TIM_Prescaler = F_CPU / 819200 - 1; //ultra smooth highest freq 400Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 8192 - 1; //ultra smooth highest freq 2197Hz
 			break;
 		case 4:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1024000 - 1; //default setting medium freq 500Hz
+			timerInitStructure.TIM_Prescaler = F_CPU / 4096 - 1; //default setting medium freq 4394Hz
 			break;	
 		case 5:
-			timerInitStructure.TIM_Prescaler = F_CPU / 2048000 - 1; //default setting medium freq 1kHz
+			timerInitStructure.TIM_Prescaler = F_CPU / 2048 - 1; //default setting medium freq 8789Hz
 			break;
 		case 6:
-			timerInitStructure.TIM_Prescaler = F_CPU / 3072000 - 1; //default setting medium freq 1.5kHz
+			timerInitStructure.TIM_Prescaler = F_CPU / 1024 - 1; //default setting medium freq 17579Hz
 			break;
 		default:
 			break;
@@ -110,7 +110,8 @@ void spindle_init(uint8_t pwm_mode)
 	
   timerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
   timerInitStructure.TIM_Period = SPINDLE_PWM_MAX_VALUE - 1;
-  timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+  //timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+  timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV4; // to allow lower frequencies F_CPU 18MHz
   timerInitStructure.TIM_RepetitionCounter = 0;
   TIM_TimeBaseInit(TIM1, &timerInitStructure);
 
@@ -119,7 +120,7 @@ void spindle_init(uint8_t pwm_mode)
   outputChannelInit.TIM_OutputState = TIM_OutputState_Enable;
   outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
 
-  TIM_OC1Init(TIM1, &outputChannelInit);
+  TIM_OC1Init(TIM1, &outputChannelInit); //outputChannel should be 4 for GPIOB, GPIO_pin9
   //	
   // newly added
   TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
