@@ -81,20 +81,20 @@ void spindle_init(uint8_t pwm_mode)
   TIM_TimeBaseInitTypeDef timerInitStructure;
   TIM_OCInitTypeDef outputChannelInit = { 0 };
   TIM_TimeBaseStructInit(&timerInitStructure);	
-	
+//timer prescaler value = (72MHz/ (Freq required * PWM resolution steps))-1	
   //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000 This parameter can be a number between 0x0000 and 0xFFFF
 	switch (pwm_mode) {
 		case 0: 
-			timerInitStructure.TIM_Prescaler = F_CPU / 65535 - 1; // default setting medium freq 275Hz
+			timerInitStructure.TIM_Prescaler = 65 ;//default setting medium freq 275Hz
 			break;
 		case 1:
-			timerInitStructure.TIM_Prescaler = F_CPU / 32767 - 1; //dither mode low freq 550Hz
+			timerInitStructure.TIM_Prescaler = 149 ; //dither mode low freq 120Hz
 			break;
 		case 2:
-			timerInitStructure.TIM_Prescaler = F_CPU / 16383 - 1; //smooth high freq 1098Hz
+			timerInitStructure.TIM_Prescaler = 59 ; //smooth high freq 300Hz
 			break;
 		case 3:
-			timerInitStructure.TIM_Prescaler = F_CPU / 8192 - 1; //ultra smooth highest freq 2197Hz
+			timerInitStructure.TIM_Prescaler = 89 ; //ultra smooth highest freq 200Hz
 			break;
 		case 4:
 			timerInitStructure.TIM_Prescaler = F_CPU / 4096 - 1; //default setting medium freq 4394Hz
