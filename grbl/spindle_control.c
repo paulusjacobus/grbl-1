@@ -81,7 +81,7 @@ void spindle_init(uint8_t pwm_mode)
   TIM_TimeBaseInitTypeDef timerInitStructure;
   TIM_OCInitTypeDef outputChannelInit = { 0 };
   TIM_TimeBaseStructInit(&timerInitStructure);	
-//timer prescaler value = (72MHz/ (Freq required * PWM resolution steps))-1	
+//timer prescaler value = (72MHz/Freq required)/ PWM resolution steps
   //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000 This parameter can be a number between 0x0000 and 0xFFFF
 	switch (pwm_mode) {
 		case 0: 
@@ -240,7 +240,8 @@ void spindle_stop()
 		SPINDLE_OCR_REGISTER = pwm_value; // Set PWM output level.
 #endif
 #if defined (STM32F103C8)
-		TIM1->CCR1 = pwm_value;
+		TIM1->CCR1 = pwm_value;//orginal way of setting the period
+	        //TIM_SetCompare4(TIM4, pwm_value); Cookbook's way of setting the period
 #endif
 		#ifdef SPINDLE_ENABLE_OFF_WITH_ZERO_SPEED
      if (pwm_value == SPINDLE_PWM_OFF_VALUE) {
