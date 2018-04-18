@@ -316,16 +316,16 @@
 #define LIMIT_PORT       GPIOB
 #define RCC_LIMIT_PORT   RCC_APB2Periph_GPIOB
 #define GPIO_LIMIT_PORT  GPIO_PortSourceGPIOB
-#define X_LIMIT_BIT      10  
-#define Y_LIMIT_BIT      11  
-#define Z_LIMIT_BIT      12  
+#define X_LIMIT_BIT      10  // Five Volt Tolerant FT
+#define Y_LIMIT_BIT      11  // FT
+#define Z_LIMIT_BIT      12  // FT
 
 #define LIMIT_MASK       ((1<<X_LIMIT_BIT)|(1<<Y_LIMIT_BIT)|(1<<Z_LIMIT_BIT)) // All limit bits
 
   // Define spindle enable and spindle direction output pins.
 #define SPINDLE_ENABLE_PORT   GPIOC //GPIOB
 #define RCC_SPINDLE_ENABLE_PORT RCC_APB2Periph_GPIOC //RCC_APB2Periph_GPIOB
-#define SPINDLE_ENABLE_BIT    13  // GPIO_Pin_13
+#define SPINDLE_ENABLE_BIT    13  // GPIO_Pin_13, FT
 #ifndef USE_SPINDLE_DIR_AS_ENABLE_PIN
 #define SPINDLE_DIRECTION_DDR   GPIOB
 #define SPINDLE_DIRECTION_PORT  GPIOB
@@ -352,16 +352,16 @@
 #define CONTROL_PORT                  GPIOB
 #define RCC_CONTROL_PORT              RCC_APB2Periph_GPIOB
 #define GPIO_CONTROL_PORT             GPIO_PortSourceGPIOB
-#define CONTROL_RESET_BIT             5  
-#define CONTROL_FEED_HOLD_BIT         6  
-#define CONTROL_CYCLE_START_BIT       7  
-#define CONTROL_SAFETY_DOOR_BIT       8  
+#define CONTROL_RESET_BIT             5  // NOT FT
+#define CONTROL_FEED_HOLD_BIT         6  // FT
+#define CONTROL_CYCLE_START_BIT       7  // FT
+#define CONTROL_SAFETY_DOOR_BIT       8  // FT
 #define CONTROL_MASK                 ((1<<CONTROL_RESET_BIT)|(1<<CONTROL_FEED_HOLD_BIT)|(1<<CONTROL_CYCLE_START_BIT)|(1<<CONTROL_SAFETY_DOOR_BIT))
 
   // Define probe switch input pin.
 #define PROBE_PORT                    GPIOA
 #define RCC_PROBE_PORT                RCC_APB2Periph_GPIOA
-#define PROBE_BIT                     15 
+#define PROBE_BIT                     15 // FT
 #define PROBE_MASK                    (1<<PROBE_BIT)
 
   // Start of PWM & Stepper Enabled Spindle
@@ -372,7 +372,7 @@
 #define SPINDLE_PWM_DDR	            GPIOB //GPIOA
 #define SPINDLE_PWM_PORT            GPIOB //GPIOA
 #define RCC_SPINDLE_PWM_PORT        RCC_APB1Periph_GPIOB //RCC_APB2Periph_GPIOA
-#define SPINDLE_PWM_BIT	            9  // 8    GPIO_Pin_9
+#define SPINDLE_PWM_BIT	            9  // 8    GPIO_Pin_9 FT
 #endif // End of VARIABLE_SPINDLE
 #define SPINDLE_PWM_MAX_VALUE       (1000000 / SPINDLE_PWM_FREQUENCY)
 #ifndef SPINDLE_PWM_MIN_VALUE
@@ -385,18 +385,18 @@
   //   0      X_STEP_BIT                             
   //   1      Y_STEP_BIT                            
   //   2      Z_STEP_BIT                               
-  //   3      X_DIRECTION_BIT               COOLANT_FLOOD_BIT
-  //   4      Y_DIRECTION_BIT               COOLANT_MIST_BIT
-  //   5      Z_DIRECTION_BIT               CONTROL_RESET_BIT
-  //   6      STEPPERS_DISABLE_BIT          CONTROL_FEED_HOLD_BIT    
-  //   7                                    CONTROL_CYCLE_START_BIT
-  //   8      XSPINDLE_PWM_BIT(TIM1)*       CONTROL_SAFETY_DOOR_BIT    
-  //   9                                    Spindle_PWM_bit(TIM4,ch4)*
-  //   10                                   X_LIMIT_BIT
-  //   11                                   Y_LIMIT_BIT
-  //   12                                   Z_LIMIT_BIT
-  //   13                                   XSPINDLE_ENABLE_BIT(&)         SPINDLE_ENABLE_BIT(&)
- //    14                                   XSPINDLE_DIRECTION_BIT(&)
+  //   3      X_DIRECTION_BIT               COOLANT_FLOOD_BIT/FT
+  //   4      Y_DIRECTION_BIT               COOLANT_MIST_BIT/FT
+  //   5      Z_DIRECTION_BIT               CONTROL_RESET_BIT/NFT!
+  //   6      STEPPERS_DISABLE_BIT          CONTROL_FEED_HOLD_BIT/FT    
+  //   7                                    CONTROL_CYCLE_START_BIT/FT
+  //   8      XSPINDLE_PWM_BIT(TIM1)*       CONTROL_SAFETY_DOOR_BIT/FT    
+  //   9                                    Spindle_PWM_bit(TIM4,ch4)*/FT
+  //   10                                   X_LIMIT_BIT/FT
+  //   11                                   Y_LIMIT_BIT/FT
+  //   12                                   Z_LIMIT_BIT/FT
+  //   13                                   XSPINDLE_ENABLE_BIT(&)/FT      SPINDLE_ENABLE_BIT(&)
+ //    14                                   XSPINDLE_DIRECTION_BIT(&)/FT
   //   15     PROBE_BIT					
 
 #endif
