@@ -4,7 +4,7 @@
     <Device manufacturerId="9" manufacturerName="ST" chipId="599" chipName="STM32F103C8T6" boardId="" boardName="" boardUrl="" coreId="" coreName=""/>
     <BuildOption>
       <Compile>
-        <Option name="OptimizationLevel" value="4"/>
+        <Option name="OptimizationLevel" value="5"/>
         <Option name="UseFPU" value="0"/>
         <Option name="UserEditCompiler" value="-ffunction-sections;"/>
         <Option name="SupportCPlusplus" value="0"/>
@@ -13,9 +13,12 @@
         <Includepaths>
           <Includepath path="."/>
           <Includepath path="usb"/>
-          <Includepath path="util"/>
           <Includepath path="useusb"/>
           <Includepath path="grbl"/>
+          <Includepath path="stm_lib"/>
+          <Includepath path="stm_usb_fs_lib"/>
+          <Includepath path="cmsis_boot"/>
+          <Includepath path="util"/>
         </Includepaths>
         <DefinedSymbols>
           <Define name="USE_STDPERIPH_DRIVER"/>
@@ -24,8 +27,8 @@
           <Define name="STM32F103C8T6"/>
           <Define name="STM32F10X_MD"/>
           <Define name="LEDBLINK"/>
-          <Define name="USEUSB"/>
           <Define name="STM32F103C8"/>
+          <Define name="USEUSB"/>
         </DefinedSymbols>
       </Compile>
       <Link useDefault="0">
@@ -46,11 +49,11 @@
           <Memory name="IROM2" type="ReadOnly" size="" startValue=""/>
           <Memory name="IRAM2" type="ReadWrite" size="" startValue=""/>
         </MemoryAreas>
-        <LocateLinkFile path="c:/users/li shao/appdata/roaming/coocox/coide/configuration/programdata/stm32grbl/arm-gcc-link.ld" type="0"/>
+        <LocateLinkFile path="c:/users/paulj/appdata/roaming/coocox/coide/configuration/programdata/stm32grbl/link.ld" type="0"/>
       </Link>
       <Output>
         <Option name="OutputFileType" value="0"/>
-        <Option name="Path" value="../../buildoutput/grbl11e/"/>
+        <Option name="Path" value="../../buildoutput/grbl11f/"/>
         <Option name="Name" value="stm32grbl"/>
         <Option name="HEX" value="1"/>
         <Option name="BIN" value="1"/>
@@ -63,7 +66,7 @@
     <DebugOption>
       <Option name="org.coocox.codebugger.gdbjtag.core.adapter" value="ST-Link"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.debugMode" value="SWD"/>
-      <Option name="org.coocox.codebugger.gdbjtag.core.clockDiv" value="2M"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.clockDiv" value="1M"/>
       <Option name="org.coocox.codebugger.gdbjtag.corerunToMain" value="1"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.jlinkgdbserver" value=""/>
       <Option name="org.coocox.codebugger.gdbjtag.core.userDefineGDBScript" value=""/>
@@ -74,10 +77,10 @@
       <Option name="org.coocox.codebugger.gdbjtag.core.ifCacheRom" value="1"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.ipAddress" value="127.0.0.1"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.portNumber" value="2009"/>
-      <Option name="org.coocox.codebugger.gdbjtag.core.autoDownload" value="1"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.autoDownload" value="0"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.verify" value="1"/>
-      <Option name="org.coocox.codebugger.gdbjtag.core.downloadFuction" value="Erase Effected"/>
-      <Option name="org.coocox.codebugger.gdbjtag.core.defaultAlgorithm" value="d:/coocox/coide/flash/stm32f10x_md_64.elf;"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.downloadFuction" value="Do not Erase"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.defaultAlgorithm" value="../../../../../../buildoutput/grbl11e/stm32grbl/debug/bin/stm32grbl.elf;"/>
       <Option name="org.coocox.codebugger.gdbjtag.coredebugInRamInitCommands" value="cd j:/buildoutput/stm3211/stm32grbl/Debug/bin restore stm32grbl.elf set {unsigned int*}0xE000ED08 = 0x20000000 set $sp = {unsigned int*}0x20000000 set $pc = {unsigned int*}0x20000004 "/>
     </DebugOption>
     <ExcludeFile/>
@@ -86,101 +89,118 @@
   <LocalComponents/>
   <Files>
     <File name="stm_usb_fs_lib/inc/usb_init.h" path="stm_usb_fs_lib/inc/usb_init.h" type="1"/>
-    <File name="grbl/inc/probe.h" path="grbl/probe.h" type="1"/>
     <File name="grbl" path="" type="2"/>
     <File name="stm_usb_fs_lib/src" path="" type="2"/>
-    <File name="usb/usb_desc.c" path="usb/usb_desc.c" type="1"/>
+    <File name="grbl/inc/probe.h" path="grbl/probe.h" type="1"/>
     <File name="grbl/src/stepper.c" path="grbl/stepper.c" type="1"/>
     <File name="stm_usb_fs_lib/inc/usb_core.h" path="stm_usb_fs_lib/inc/usb_core.h" type="1"/>
-    <File name="cmsis_boot" path="" type="2"/>
-    <File name="usb/hw_config.c" path="usb/hw_config.c" type="1"/>
     <File name="grbl/inc/eeprom.h" path="grbl/eeprom.h" type="1"/>
     <File name="stm_usb_fs_lib/inc/usb_mem.h" path="stm_usb_fs_lib/inc/usb_mem.h" type="1"/>
-    <File name="grbl/inc/print.h" path="grbl/print.h" type="1"/>
-    <File name="stm_lib/src/stm32f10x_tim.c" path="stm_lib/src/stm32f10x_tim.c" type="1"/>
-    <File name="cmsis_boot/startup" path="" type="2"/>
-    <File name="stm_usb_fs_lib/inc/usb_regs.h" path="stm_usb_fs_lib/inc/usb_regs.h" type="1"/>
-    <File name="cmsis/core_cmFunc.h" path="cmsis/core_cmFunc.h" type="1"/>
     <File name="grbl/inc/system.h" path="grbl/system.h" type="1"/>
-    <File name="stm_usb_fs_lib/inc/usb_int.h" path="stm_usb_fs_lib/inc/usb_int.h" type="1"/>
+    <File name="cmsis/core_cmFunc.h" path="cmsis/core_cmFunc.h" type="1"/>
     <File name="stm_lib/src/misc.c" path="stm_lib/src/misc.c" type="1"/>
     <File name="grbl/src/jog.c" path="grbl/jog.c" type="1"/>
     <File name="cmsis_boot/stm32f10x.h" path="cmsis_boot/stm32f10x.h" type="1"/>
-    <File name="grbl/src/coolant_control.c" path="grbl/coolant_control.c" type="1"/>
     <File name="cmsis_boot/stm32f10x_conf.h" path="cmsis_boot/stm32f10x_conf.h" type="1"/>
-    <File name="grbl/src/limits.c" path="grbl/limits.c" type="1"/>
-    <File name="grbl/src/serial.c" path="grbl/serial.c" type="1"/>
     <File name="grbl/src/protocol.c" path="grbl/protocol.c" type="1"/>
-    <File name="stm_usb_fs_lib/src/usb_mem.c" path="stm_usb_fs_lib/src/usb_mem.c" type="1"/>
     <File name="stm_lib/inc/stm32f10x_spi.h" path="stm_lib/inc/stm32f10x_spi.h" type="1"/>
-    <File name="usb" path="" type="2"/>
-    <File name="grbl/src/probe.c" path="grbl/probe.c" type="1"/>
-    <File name="grbl/inc/planner.h" path="grbl/planner.h" type="1"/>
-    <File name="grbl/inc/stepper.h" path="grbl/stepper.h" type="1"/>
-    <File name="stm_lib/src/stm32f10x_usart.c" path="stm_lib/src/stm32f10x_usart.c" type="1"/>
     <File name="stm_usb_fs_lib/src/usb_sil.c" path="stm_usb_fs_lib/src/usb_sil.c" type="1"/>
-    <File name="grbl/inc/spindle_control.h" path="grbl/spindle_control.h" type="1"/>
     <File name="grbl/src/nuts_bolts.c" path="grbl/nuts_bolts.c" type="1"/>
     <File name="cmsis_boot/startup/startup_stm32f10x_md.c" path="cmsis_boot/startup/startup_stm32f10x_md.c" type="1"/>
     <File name="stm_lib/src/stm32f10x_gpio.c" path="stm_lib/src/stm32f10x_gpio.c" type="1"/>
-    <File name="stm_lib/inc/stm32f10x_gpio.h" path="stm_lib/inc/stm32f10x_gpio.h" type="1"/>
+    <File name="grbl/inc/stm32_dsp.h" path="C:/Program Files (x86)/STMicroelectronics/STM32F10x_DSP_Lib_V2.0.0/Libraries/STM32F10x_DSP_Lib/inc/stm32_dsp.h" type="1"/>
     <File name="stm_lib/inc/stm32f10x_usart.h" path="stm_lib/inc/stm32f10x_usart.h" type="1"/>
-    <File name="grbl/inc/report.h" path="grbl/report.h" type="1"/>
     <File name="grbl/inc/config.h" path="grbl/config.h" type="1"/>
     <File name="stm_usb_fs_lib/inc/usb_sil.h" path="stm_usb_fs_lib/inc/usb_sil.h" type="1"/>
     <File name="cmsis_boot/system_stm32f10x.c" path="cmsis_boot/system_stm32f10x.c" type="1"/>
-    <File name="stm_lib/inc/misc.h" path="stm_lib/inc/misc.h" type="1"/>
+    <File name="grbl/inc/stm32f10x_flash.h" path="stm_lib/inc/stm32f10x_flash.h" type="1"/>
     <File name="stm_usb_fs_lib/src/usb_int.c" path="stm_usb_fs_lib/src/usb_int.c" type="1"/>
-    <File name="grbl/inc/gcode.h" path="grbl/gcode.h" type="1"/>
-    <File name="cmsis/core_cmInstr.h" path="cmsis/core_cmInstr.h" type="1"/>
+    <File name="stm_lib/inc/misc.h" path="stm_lib/inc/misc.h" type="1"/>
+    <File name="stm_lib/src/stm32f10x_rct.c" path="stm_lib/src/stm32f10x_rct.c" type="1"/>
     <File name="util" path="" type="2"/>
-    <File name="grbl/src/spindle_control.c" path="grbl/spindle_control.c" type="1"/>
-    <File name="stm_usb_fs_lib" path="" type="2"/>
-    <File name="cmsis/core_cm3.h" path="cmsis/core_cm3.h" type="1"/>
+    <File name="cmsis/core_cmInstr.h" path="cmsis/core_cmInstr.h" type="1"/>
+    <File name="grbl/inc/gcode.h" path="grbl/gcode.h" type="1"/>
+    <File name="grbl/src/main.c" path="grbl/main.c" type="1"/>
     <File name="stm_usb_fs_lib/inc" path="" type="2"/>
-    <File name="grbl/src/sleep.c" path="grbl/sleep.c" type="1"/>
-    <File name="stm_lib/src/stm32f10x_exti.c" path="stm_lib/src/stm32f10x_exti.c" type="1"/>
-    <File name="stm_usb_fs_lib/src/usb_init.c" path="stm_usb_fs_lib/src/usb_init.c" type="1"/>
     <File name="usb/usb_pwr.c" path="usb/usb_pwr.c" type="1"/>
-    <File name="stm_usb_fs_lib/src/usb_core.c" path="stm_usb_fs_lib/src/usb_core.c" type="1"/>
     <File name="stm_lib/src/stm32f10x_rcc.c" path="stm_lib/src/stm32f10x_rcc.c" type="1"/>
     <File name="stm_usb_fs_lib/inc/usb_conf.h" path="stm_usb_fs_lib/inc/usb_conf.h" type="1"/>
     <File name="grbl/src/gcode.c" path="grbl/gcode.c" type="1"/>
     <File name="grbl/inc/limits.h" path="grbl/limits.h" type="1"/>
     <File name="grbl/inc/serial.h" path="grbl/serial.h" type="1"/>
     <File name="stm_usb_fs_lib/inc/usb_def.h" path="stm_usb_fs_lib/inc/usb_def.h" type="1"/>
-    <File name="grbl/src/eeprom.c" path="grbl/eeprom.c" type="1"/>
     <File name="usb/usb_prop.c" path="usb/usb_prop.c" type="1"/>
-    <File name="grbl/inc/coolant_control.h" path="grbl/coolant_control.h" type="1"/>
-    <File name="stm_usb_fs_lib/inc/usb_type.h" path="stm_usb_fs_lib/inc/usb_type.h" type="1"/>
-    <File name="grbl/inc/protocol.h" path="grbl/protocol.h" type="1"/>
+    <File name="grbl/src/eeprom.c" path="grbl/eeprom.c" type="1"/>
     <File name="grbl/src" path="" type="2"/>
-    <File name="usb/usb_istr.c" path="usb/usb_istr.c" type="1"/>
-    <File name="stm_lib/src" path="" type="2"/>
+    <File name="grbl/inc/protocol.h" path="grbl/protocol.h" type="1"/>
     <File name="grbl/inc/motion_control.h" path="grbl/motion_control.h" type="1"/>
+    <File name="stm_lib/src" path="" type="2"/>
+    <File name="usb/usb_istr.c" path="usb/usb_istr.c" type="1"/>
     <File name="cmsis" path="" type="2"/>
     <File name="stm_lib" path="" type="2"/>
     <File name="grbl/src/planner.c" path="grbl/planner.c" type="1"/>
+    <File name="grbl/src/PID_C_stm32.c" path="C:/Program Files (x86)/STMicroelectronics/STM32F10x_DSP_Lib_V2.0.0/Libraries/STM32F10x_DSP_Lib/src/PID_C_stm32.c" type="1"/>
     <File name="stm_lib/inc/stm32f10x_exti.h" path="stm_lib/inc/stm32f10x_exti.h" type="1"/>
-    <File name="stm_lib/src/stm32f10x_flash.c" path="stm_lib/src/stm32f10x_flash.c" type="1"/>
-    <File name="grbl/src/print.c" path="grbl/print.c" type="1"/>
-    <File name="usb/usb_endp.c" path="usb/usb_endp.c" type="1"/>
     <File name="cmsis_boot/system_stm32f10x.h" path="cmsis_boot/system_stm32f10x.h" type="1"/>
-    <File name="stm_lib/inc/stm32f10x_rcc.h" path="stm_lib/inc/stm32f10x_rcc.h" type="1"/>
+    <File name="grbl/inc/spi.h" path="grbl/spi.h" type="1"/>
     <File name="grbl/inc" path="" type="2"/>
-    <File name="stm_usb_fs_lib/src/usb_regs.c" path="stm_usb_fs_lib/src/usb_regs.c" type="1"/>
     <File name="stm_usb_fs_lib/inc/usb_lib.h" path="stm_usb_fs_lib/inc/usb_lib.h" type="1"/>
-    <File name="grbl/inc/nuts_bolts.h" path="grbl/nuts_bolts.h" type="1"/>
-    <File name="grbl/inc/jog.h" path="grbl/jog.h" type="1"/>
     <File name="grbl/src/settings.c" path="grbl/settings.c" type="1"/>
-    <File name="util/stm32f10x_it.c" path="util/stm32f10x_it.c" type="1"/>
+    <File name="grbl/inc/jog.h" path="grbl/jog.h" type="1"/>
     <File name="grbl/src/report.c" path="grbl/report.c" type="1"/>
     <File name="grbl/src/system.c" path="grbl/system.c" type="1"/>
+    <File name="grbl/src/motion_control.c" path="grbl/motion_control.c" type="1"/>
+    <File name="main.c" path="grbl/main.c" type="1"/>
+    <File name="usb/usb_prop.h" path="usb/usb_prop.h" type="1"/>
+    <File name="usb/usb_desc.c" path="usb/usb_desc.c" type="1"/>
+    <File name="grbl/inc/cpu_map.h" path="grbl/cpu_map.h" type="1"/>
+    <File name="stm_lib/inc/stm32f10x_tim.h" path="stm_lib/inc/stm32f10x_tim.h" type="1"/>
+    <File name="cmsis_boot" path="" type="2"/>
+    <File name="usb/hw_config.c" path="usb/hw_config.c" type="1"/>
+    <File name="grbl/inc/print.h" path="grbl/print.h" type="1"/>
+    <File name="stm_lib/src/stm32f10x_tim.c" path="stm_lib/src/stm32f10x_tim.c" type="1"/>
+    <File name="cmsis_boot/startup" path="" type="2"/>
+    <File name="stm_usb_fs_lib/inc/usb_regs.h" path="stm_usb_fs_lib/inc/usb_regs.h" type="1"/>
+    <File name="stm_usb_fs_lib/inc/usb_int.h" path="stm_usb_fs_lib/inc/usb_int.h" type="1"/>
+    <File name="stm_lib/src/stm32f10x_spi.c" path="stm_lib/inc/stm32f10x_spi.c" type="1"/>
+    <File name="grbl/src/coolant_control.c" path="grbl/coolant_control.c" type="1"/>
+    <File name="grbl/inc/defaults.h" path="grbl/defaults.h" type="1"/>
+    <File name="grbl/src/limits.c" path="grbl/limits.c" type="1"/>
+    <File name="grbl/src/serial.c" path="grbl/serial.c" type="1"/>
+    <File name="stm_usb_fs_lib/src/usb_mem.c" path="stm_usb_fs_lib/src/usb_mem.c" type="1"/>
+    <File name="usb/stbool.h" path="usb/stbool.h" type="1"/>
+    <File name="usb" path="" type="2"/>
+    <File name="grbl/src/probe.c" path="grbl/probe.c" type="1"/>
+    <File name="grbl/src/tool.c" path="grbl/tool.c" type="1"/>
+    <File name="grbl/inc/planner.h" path="grbl/planner.h" type="1"/>
+    <File name="grbl/inc/stepper.h" path="grbl/stepper.h" type="1"/>
+    <File name="stm_lib/src/stm32f10x_usart.c" path="stm_lib/src/stm32f10x_usart.c" type="1"/>
+    <File name="stm_lib/inc/stm32f10x_rtc.h" path="stm_lib/inc/stm32f10x_rtc.h" type="1"/>
+    <File name="grbl/inc/spindle_control.h" path="grbl/spindle_control.h" type="1"/>
+    <File name="stm_lib/inc/stm32f1xx_hal_spi.h" path="../OneDrive/Documents/Spi/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_spi.h" type="1"/>
+    <File name="grbl/inc/stm32eeprom.h" path="grbl/stm32eeprom.h" type="1"/>
+    <File name="stm_lib/inc/stm32f10x_gpio.h" path="stm_lib/inc/stm32f10x_gpio.h" type="1"/>
+    <File name="grbl/inc/report.h" path="grbl/report.h" type="1"/>
+    <File name="grbl/src/spindle_control.c" path="grbl/spindle_control.c" type="1"/>
+    <File name="stm_usb_fs_lib" path="" type="2"/>
+    <File name="grbl/src/spi.c" path="../ffsample/stm32/spi.c" type="1"/>
+    <File name="cmsis/core_cm3.h" path="cmsis/core_cm3.h" type="1"/>
+    <File name="stm_lib/src/stm32f10x_exti.c" path="stm_lib/src/stm32f10x_exti.c" type="1"/>
+    <File name="stm_usb_fs_lib/src/usb_init.c" path="stm_usb_fs_lib/src/usb_init.c" type="1"/>
+    <File name="stm_usb_fs_lib/src/usb_core.c" path="stm_usb_fs_lib/src/usb_core.c" type="1"/>
+    <File name="grbl/inc/tool.h" path="grbl/tool.h" type="1"/>
+    <File name="grbl/inc/coolant_control.h" path="grbl/coolant_control.h" type="1"/>
+    <File name="stm_usb_fs_lib/inc/usb_type.h" path="stm_usb_fs_lib/inc/usb_type.h" type="1"/>
+    <File name="grbl/src/print.c" path="grbl/print.c" type="1"/>
+    <File name="stm_lib/src/stm32f10x_flash.c" path="stm_lib/src/stm32f10x_flash.c" type="1"/>
+    <File name="usb/usb_endp.c" path="usb/usb_endp.c" type="1"/>
+    <File name="stm_lib/inc/stm32f10x_rcc.h" path="stm_lib/inc/stm32f10x_rcc.h" type="1"/>
+    <File name="grbl/inc/nuts_bolts.h" path="grbl/nuts_bolts.h" type="1"/>
+    <File name="stm_usb_fs_lib/src/usb_regs.c" path="stm_usb_fs_lib/src/usb_regs.c" type="1"/>
+    <File name="util/stm32f10x_it.c" path="util/stm32f10x_it.c" type="1"/>
     <File name="grbl/inc/settings.h" path="grbl/settings.h" type="1"/>
     <File name="stm_lib/inc" path="" type="2"/>
-    <File name="grbl/src/motion_control.c" path="grbl/motion_control.c" type="1"/>
     <File name="grbl/inc/grbl.h" path="grbl/grbl.h" type="1"/>
-    <File name="main.c" path="grbl/main.c" type="1"/>
   </Files>
   <Bookmarks/>
 </Project>

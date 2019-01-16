@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<Project version="2G - 1.7.8" name="stm32grbl">
+<Project version="2G - 2.0.7" name="stm32grbl">
   <Target name="stm32grbl" isCurrent="1">
-    <Device manufacturerId="9" manufacturerName="ST" chipId="305" chipName="STM32F103C8" boardId="" boardName=""/>
+    <Device manufacturerId="9" manufacturerName="ST" chipId="305" chipName="STM32F103C8" boardId="" boardName="" boardUrl="" coreId="" coreName=""/>
     <BuildOption>
       <Compile>
         <Option name="OptimizationLevel" value="4"/>
@@ -19,7 +19,7 @@
           <Define name="USE_STDPERIPH_DRIVER"/>
           <Define name="__ASSEMBLY__"/>
           <Define name="_GRBL_"/>
-          <Define name="STM32F103C8"/>
+          <Define name="STM32F103C8T6"/>
           <Define name="STM32F10X_MD"/>
           <Define name="LEDBLINK"/>
           <Define name="USEUSB"/>
@@ -47,7 +47,7 @@
       </Link>
       <Output>
         <Option name="OutputFileType" value="0"/>
-        <Option name="Path" value="j:/buildoutput/grbl11e/"/>
+        <Option name="Path" value="../../buildoutput/grbl11f/"/>
         <Option name="Name" value="stm32grbl"/>
         <Option name="HEX" value="1"/>
         <Option name="BIN" value="1"/>
@@ -74,12 +74,13 @@
       <Option name="org.coocox.codebugger.gdbjtag.core.autoDownload" value="1"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.verify" value="1"/>
       <Option name="org.coocox.codebugger.gdbjtag.core.downloadFuction" value="Erase Effected"/>
-      <Option name="org.coocox.codebugger.gdbjtag.core.defaultAlgorithm" value="./stm32f10x_md_64.elf"/>
+      <Option name="org.coocox.codebugger.gdbjtag.core.defaultAlgorithm" value="C:\Users\paulj\AppData\Roaming\CooCox\CoIDE\config\flash\CooCox-Flash\CoIDE_STM32F1xx_MD_64K\STM32F10x_MD_64.elf"/>
       <Option name="org.coocox.codebugger.gdbjtag.coredebugInRamInitCommands" value="cd j:/buildoutput/stm3211d/stm32grbl/Debug/bin restore stm32grbl.elf set {unsigned int*}0xE000ED08 = 0x20000000 set $sp = {unsigned int*}0x20000000 set $pc = {unsigned int*}0x20000004 "/>
     </DebugOption>
     <ExcludeFile/>
   </Target>
   <Components path="./"/>
+  <LocalComponents/>
   <Files>
     <File name="stm_usb_fs_lib/src" path="" type="2"/>
     <File name="stm_usb_fs_lib/inc/usb_init.h" path="stm_usb_fs_lib/inc/usb_init.h" type="1"/>
@@ -179,4 +180,5 @@
     <File name="stm_lib/inc" path="" type="2"/>
     <File name="grbl/inc/grbl.h" path="grbl/grbl.h" type="1"/>
   </Files>
+  <Bookmarks/>
 </Project>
