@@ -1,7 +1,7 @@
 ![GitHub Logo](https://awesome.tech/wp-content/uploads/2018/11/20181030_103220-1-e1547624499622.jpg)
 
 ***
-_Click the `Release` tab to download pre-compiled `.hex` files or just [click here](https://github.com/gnea/grbl/releases)_
+_Click the `Release` tab to download pre-compiled `.hex` files or just [click here](https://awesome.tech/downloads/)_
 ***
 For the insights of ARM Grbl, please visit this page [click here] https://awesome.tech/grbl-demystified/
 
