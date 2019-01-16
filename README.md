@@ -1,4 +1,5 @@
 ![GitHub Logo](https://awesome.tech/wp-content/uploads/2018/10/Super-Gerbil-v1.gif)
+<p><img src="https://awesome.tech/wp-content/uploads/2018/10/Super-Gerbil-v1.gif" alt="foo" /></p>
 
 ***
 _Click the `Release` tab to download pre-compiled `.hex` files or just [click here](https://github.com/gnea/grbl/releases)_
