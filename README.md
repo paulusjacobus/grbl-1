@@ -1,4 +1,4 @@
-![GitHub Logo](https://github.com/gnea/gnea-Media/blob/master/Grbl%20Logo/Grbl%20Logo%20250px.png?raw=true)
+![GitHub Logo](https://awesome.tech/wp-content/uploads/2018/10/Super-Gerbil-v1.gif)
 
 ***
 _Click the `Release` tab to download pre-compiled `.hex` files or just [click here](https://github.com/gnea/grbl/releases)_
@@ -26,6 +26,6 @@ Grbl includes full acceleration management with look ahead. That means the contr
 ***
 
 -------------
-Grbl is an open-source project and fueled by the free-time of our intrepid administrators and altruistic users. If you'd like to donate, all proceeds will be used to help fund supporting hardware and testing equipment. Thank you!
+Grbl is an open-source project and fueled by the free-time of our intrepid administrators and altruistic users. If you'd like to donate to @chamnit, all proceeds will be used to help him fund supporting hardware and testing equipment or support us Awesome.tech by buying our boards. Thank you!
 
 [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=CUGXJHXA36BYW)
