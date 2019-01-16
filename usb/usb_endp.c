@@ -21,7 +21,7 @@
 #include "usb_pwr.h"
 #include "serial.h"
 uint8_t USB_Rx_Buffer[VIRTUAL_COM_PORT_DATA_SIZE];
-
+extern uint8_t setflagmessage;
 extern uint8_t serial_tx_buffer[];
 extern uint8_t serial_tx_buffer_head;
 extern volatile uint8_t serial_tx_buffer_tail;
@@ -41,6 +41,13 @@ void EP3_OUT_Callback(void)
 	/* Enable the receive of data on EP3 */
 	SetEPRxValid(ENDP3);
 }
+
+void set_init_msg_flag (void)
+{
+//	set_init_msg_report();
+}
+
+
 void EP1_IN_Callback (void)
 {
 	if (serial_tx_buffer_head != serial_tx_buffer_tail && (_GetEPTxStatus(ENDP1) == EP_TX_NAK))
@@ -101,6 +108,13 @@ void SOF_Callback(void)
 		/* Check the data to be sent through IN pipe */
 		EP1_IN_Callback();
 	}
+}
+
+void RESET_Callback(void)
+{
+	uint8_t setflagmessage = 1;
+		//set_init_msg_flag();
+
 }
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
 

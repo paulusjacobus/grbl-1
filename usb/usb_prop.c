@@ -256,6 +256,14 @@ void Virtual_Com_Port_Status_Out(void)
 * Output         : None.
 * Return         : USB_UNSUPPORT or USB_SUCCESS.
 *******************************************************************************/
+
+#include <stbool.h>
+static bool host_port_open = false;
+bool Virtual_Com_port_IsHostPortOpen()
+{
+	return bDeviceState == CONFIGURED && host_port_open;
+}
+
 RESULT Virtual_Com_Port_Data_Setup(uint8_t RequestNo)
 {
   uint8_t    *(*CopyRoutine)(uint16_t);
@@ -274,18 +282,21 @@ RESULT Virtual_Com_Port_Data_Setup(uint8_t RequestNo)
     if (Type_Recipient == (CLASS_REQUEST | INTERFACE_RECIPIENT))
     {
       CopyRoutine = Virtual_Com_Port_SetLineCoding;
+
     }
     Request = SET_LINE_CODING;
   }
 
   if (CopyRoutine == NULL)
   {
+	  host_port_open = false;
     return USB_UNSUPPORT;
   }
 
   pInformation->Ctrl_Info.CopyData = CopyRoutine;
   pInformation->Ctrl_Info.Usb_wOffset = 0;
   (*CopyRoutine)(0);
+
   return USB_SUCCESS;
 }
 
@@ -307,7 +318,8 @@ RESULT Virtual_Com_Port_NoData_Setup(uint8_t RequestNo)
     }
     else if (RequestNo == SET_CONTROL_LINE_STATE)
     {
-      return USB_SUCCESS;
+        host_port_open = (pInformation->USBwValues.bw.bb0 & 0x01) != 0;// added by Paul to test usb connection at host open so we can display the startup msg
+    	return USB_SUCCESS;
     }
   }
 

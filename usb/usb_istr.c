@@ -96,9 +96,9 @@ void USB_Istr(void)
   {
     _SetISTR((uint16_t)CLR_RESET);
     Device_Property.Reset();
-#ifdef RESET_CALLBACK
+//#ifdef RESET_CALLBACK
     RESET_Callback();
-#endif
+//#endif
   }
 #endif
   /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
