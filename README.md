@@ -7,7 +7,7 @@ For the insights of ARM Grbl, please visit this page [click here] https://awesom
 
 Grbl is a no-compromise, high performance, low cost alternative to parallel-port-based motion control for CNC milling. This version of Grbl runs on a STM32F10x processor. For the appropriate boards see our website https://awesome.tech/buy-gerbil/
 
-The controller is written in highly optimized C utilizing every clever feature of the AVR-chips to achieve precise timing and asynchronous operation. It is able to maintain up to 100kHz of stable, jitter free control pulses.
+The controller is written in highly optimized C utilizing every clever feature of the STM32-chips to achieve precise timing and asynchronous operation. It is able to maintain up to 100kHz of stable, jitter free control pulses and PWM up to 80kHz. See specifications [click here] https://awesome.tech/new-super-gerbil-cnc/
 
 It accepts standards-compliant g-code and has been tested with the output of several CAM tools with no problems. Arcs, circles and helical motion are fully supported, as well as, all other primary g-code commands. Macro functions, variables, and most canned cycles are not supported, but we think GUIs can do a much better job at translating them into straight g-code anyhow.
 
