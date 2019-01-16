@@ -68,7 +68,8 @@
 #define EXEC_SPINDLE_OVR_STOP          bit(5)
 #define EXEC_COOLANT_FLOOD_OVR_TOGGLE  bit(6)
 #define EXEC_COOLANT_MIST_OVR_TOGGLE   bit(7)
-
+#define EXEC_TOOL_CHANGE_OVR_TOGGLE    bit(8) //Added by Paul
+#define EXEC_TOOL_M6_OVR_TOGGLE        bit(9)
 // Define system state bit map. The state variable primarily tracks the individual functions
 // of Grbl to manage each without overlapping. It is also used as a messaging flag for
 // critical events.
@@ -102,16 +103,19 @@
 
 // Define control pin index for Grbl internal use. Pin maps may change, but these values don't.
 #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
-  #define N_CONTROL_PIN 4
+  #define N_CONTROL_PIN 5  //Paul we have 5 control pin's
   #define CONTROL_PIN_INDEX_SAFETY_DOOR   bit(0)
   #define CONTROL_PIN_INDEX_RESET         bit(1)
   #define CONTROL_PIN_INDEX_FEED_HOLD     bit(2)
   #define CONTROL_PIN_INDEX_CYCLE_START   bit(3)
+//Pauls addon for DC motor fault handling
+  #define CONTROL_PIN_INDEX_FAULT         bit(4) // the fifth control pin for the dc motor fault
 #else
   #define N_CONTROL_PIN 3
   #define CONTROL_PIN_INDEX_RESET         bit(0)
   #define CONTROL_PIN_INDEX_FEED_HOLD     bit(1)
   #define CONTROL_PIN_INDEX_CYCLE_START   bit(2)
+  #define CONTROL_PIN_INDEX_FAULT         bit(4)
 #endif
 
 // Define spindle stop override control states.
@@ -142,7 +146,9 @@ typedef struct {
 	#endif
 	#ifdef VARIABLE_SPINDLE
     float spindle_speed;
-  #endif
+    #endif
+  uint32_t tool_counter;        // Tracks the pulse duration for the Tn toggle
+  uint32_t m6_counter;          // Tracks the pulse duration for the M6 pin
 } system_t;
 extern system_t sys;
 
@@ -151,6 +157,14 @@ extern int32_t sys_position[N_AXIS];      // Real-time machine (aka home) positi
 extern int32_t sys_probe_position[N_AXIS]; // Last probe position in machine coordinates and steps.
 
 extern volatile uint8_t sys_probe_state;   // Probing state value.  Used to coordinate the probing cycle with stepper ISR.
+extern volatile uint8_t sys_m6_state;   // m6 state value.  Used to coordinate the ATC cycle with stepper ISR.
+extern volatile uint8_t sys_tool_state;   // tool state value.  Used to coordinate the ATC cycle with stepper ISR.
+
+//extern volatile uint8_t sys_rt_exec_state;   // Global realtime executor bitflag variable for state management. See EXEC bitmasks.
+//extern volatile uint8_t sys_rt_exec_alarm;   // Global realtime executor bitflag variable for setting various alarms.
+//extern volatile uint8_t sys_rt_exec_motion_override; // Global realtime executor bitflag variable for motion-based overrides.
+//extern volatile uint8_t sys_rt_exec_accessory_override; // Global realtime executor bitflag variable for spindle/coolant overrides.
+
 extern volatile uint8_t sys_rt_exec_state;   // Global realtime executor bitflag variable for state management. See EXEC bitmasks.
 extern volatile uint8_t sys_rt_exec_alarm;   // Global realtime executor bitflag variable for setting various alarms.
 extern volatile uint8_t sys_rt_exec_motion_override; // Global realtime executor bitflag variable for motion-based overrides.
@@ -165,7 +179,8 @@ extern volatile uint8_t sys_rt_exec_accessory_override; // Global realtime execu
 void system_init();
 
 // Returns bitfield of control pin states, organized by CONTROL_PIN_INDEX. (1=triggered, 0=not triggered).
-uint8_t system_control_get_state();
+//uint8_t system_control_get_state();
+uint8_t system_control_get_state(); //Paul, increased to 16 bits to handle more states
 
 // Returns if safety door is open or closed, based on pin state.
 uint8_t system_check_safety_door_ajar();
@@ -180,7 +195,7 @@ void system_execute_startup(char *line);
 void system_flag_wco_change();
 
 // Returns machine position of axis 'idx'. Must be sent a 'step' array.
-float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx);
+float system_convert_axis_steps_to_mpos(int32_t *steps, uint16_t idx); // Paul, float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx);
 
 // Updates a machine 'position' array based on the 'step' array sent.
 void system_convert_array_steps_to_mpos(float *position, int32_t *steps);
@@ -192,7 +207,7 @@ void system_convert_array_steps_to_mpos(float *position, int32_t *steps);
 #endif
 
 // Checks and reports if target array exceeds machine travel limits.
-uint8_t system_check_travel_limits(float *target);
+uint16_t system_check_travel_limits(float *target);//Paul, uint8_t system_check_travel_limits(float *target);
 
 // Special handlers for setting and clearing Grbl's real-time execution flags.
 void system_set_exec_state_flag(uint8_t mask);

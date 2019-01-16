@@ -1,4 +1,6 @@
 /*
+  5 AXIS GRBL X,Y,Z,A,B 6th of AUGUST 2018 AWESOME.TECH
+
   config.h - compile time configuration
   Part of Grbl
 
@@ -36,7 +38,9 @@
 // If doing so, simply comment out these two defines and see instructions below.
 #define DEFAULTS_GENERIC
 //#define DEFAULT_CNC3020
-#define STM32F103C8
+//#define STM32F103C8
+#define USEUSB
+#define CPU_MAP_STM32F103 // CPU_MAP_STM32F103
 #ifdef WIN32
 #define CPU_MAP_WIN32
 #endif
@@ -47,9 +51,10 @@
 #define CPU_MAP_STM32F103
 #endif
 
+//#define SYSCLK_FREQ_72MHz
 // Serial baud rate
-// #define BAUD_RATE 230400
-#define BAUD_RATE 115200
+#define BAUD_RATE 230400
+//#define BAUD_RATE 115200
 
 // Define realtime command special characters. These characters are 'picked-off' directly from the
 // serial read data stream and are not passed to the grbl line execution parser. Select characters
@@ -66,7 +71,7 @@
 // NOTE: All override realtime commands must be in the extended ASCII character set, starting
 // at character value 128 (0x80) and up to 255 (0xFF). If the normal set of realtime commands,
 // such as status reports, feed hold, reset, and cycle start, are moved to the extended set
-// space, serial.c's RX ISR will need to be modified to accomodate the change.
+// space, serial.c's RX ISR will need to be modified to accommodate the change.
 // #define CMD_RESET 0x80
 // #define CMD_STATUS_REPORT 0x81
 // #define CMD_CYCLE_START 0x82
@@ -112,9 +117,9 @@
 // on separate pin, but homed in one cycle. Also, it should be noted that the function of hard limits
 // will not be affected by pin sharing.
 // NOTE: Defaults are set for a traditional 3-axis CNC machine. Z-axis first to clear, followed by X & Y.
-//#define HOMING_CYCLE_0 (1<<Z_AXIS)                // REQUIRED: First move Z to clear workspace.
-#define HOMING_CYCLE_0 ((1<<X_AXIS)|(1<<Y_AXIS))  // OPTIONAL: Then move X,Y at the same time.
-// #define HOMING_CYCLE_2                         // OPTIONAL: Uncomment and add axes mask to enable
+#define HOMING_CYCLE_0 (1<<Z_AXIS)                // REQUIRED: First move Z to clear workspace.
+#define HOMING_CYCLE_1 ((1<<X_AXIS)|(1<<Y_AXIS))  // OPTIONAL: Then move X,Y at the same time.
+// #define HOMING_CYCLE_2  ((1<<Z_AXIS)|(1<<A_AXIS)|(1<<B_AXIS)) // OPTIONAL: Uncomment and add axes mask to enable
 
 // NOTE: The following are two examples to setup homing for 2-axis machines.
 // #define HOMING_CYCLE_0 ((1<<X_AXIS)|(1<<Y_AXIS))  // NOT COMPATIBLE WITH COREXY: Homes both X-Y in one cycle. 
@@ -136,7 +141,7 @@
 // After homing, Grbl will set by default the entire machine space into negative space, as is typical
 // for professional CNC machines, regardless of where the limit switches are located. Uncomment this
 // define to force Grbl to always set the machine origin at the homed location despite switch orientation.
-// #define HOMING_FORCE_SET_ORIGIN // Uncomment to enable.
+#define HOMING_FORCE_SET_ORIGIN // Uncomment to enable.
 
 // Number of blocks Grbl executes upon startup. These blocks are stored in EEPROM, where the size
 // and addresses are defined in settings.h. With the current settings, up to 2 startup blocks may
@@ -176,13 +181,13 @@
 // Enables a second coolant control pin via the mist coolant g-code command M7 on the Arduino Uno
 // analog pin 4. Only use this option if you require a second coolant control pin.
 // NOTE: The M8 flood coolant control pin on analog pin 3 will still be functional regardless.
-// #define ENABLE_M7 // Disabled by default. Uncomment to enable.
+#define ENABLE_M7 // Disabled by default. Uncomment to enable.
 
 // This option causes the feed hold input to act as a safety door switch. A safety door, when triggered,
 // immediately forces a feed hold and then safely de-energizes the machine. Resuming is blocked until
 // the safety door is re-engaged. When it is, Grbl will re-energize the machine and then resume on the
 // previous tool path, as if nothing happened.
-// #define ENABLE_SAFETY_DOOR_INPUT_PIN // Default disabled. Uncomment to enable.
+#define ENABLE_SAFETY_DOOR_INPUT_PIN // Default disabled. Uncomment to enable.
 
 // After the safety door switch has been toggled and restored, this setting sets the power-up delay
 // between restoring the spindle and coolant and resuming the cycle.
@@ -218,7 +223,7 @@
 // NOTE: If VARIABLE_SPINDLE is enabled(default), this option has no effect as the PWM output and
 // spindle enable are combined to one pin. If you need both this option and spindle speed PWM,
 // uncomment the config option USE_SPINDLE_DIR_AS_ENABLE_PIN below.
-// #define INVERT_SPINDLE_ENABLE_PIN // Default disabled. Uncomment to enable.
+ #define INVERT_SPINDLE_ENABLE_PIN // Default disabled. Uncomment to enable.
 
 // Inverts the selected coolant pin from low-disabled/high-enabled to low-enabled/high-disabled. Useful
 // for some pre-built electronic boards.
@@ -243,13 +248,13 @@
 // ADVANCED CONFIGURATION OPTIONS:
 
 // Enables code for debugging purposes. Not for general use and always in constant flux.
-// #define DEBUG // Uncomment to enable. Default disabled.
+//#define DEBUG // Uncomment to enable. Default disabled.
 
 // Configure rapid, feed, and spindle override settings. These values define the max and min
 // allowable override values and the coarse and fine increments per command received. Please
 // note the allowable values in the descriptions following each define.
 #define DEFAULT_FEED_OVERRIDE           100 // 100%. Don't change this value.
-#define MAX_FEED_RATE_OVERRIDE          200 // Percent of programmed feed rate (100-255). Usually 120% or 200%
+#define MAX_FEED_RATE_OVERRIDE          255 // Percent of programmed feed rate (100-255). Usually 120% or 200%
 #define MIN_FEED_RATE_OVERRIDE           10 // Percent of programmed feed rate (1-100). Usually 50% or 1%
 #define FEED_OVERRIDE_COARSE_INCREMENT   10 // (1-99). Usually 10%.
 #define FEED_OVERRIDE_FINE_INCREMENT      1 // (1-99). Usually 1%.
@@ -293,9 +298,9 @@
 // to be refreshed very often, on the order of a several seconds.
 // NOTE: WCO refresh must be 2 or greater. OVR refresh must be 1 or greater.
 #define REPORT_OVR_REFRESH_BUSY_COUNT 20  // (1-255)
-#define REPORT_OVR_REFRESH_IDLE_COUNT 10  // (1-255) Must be less than or equal to the busy count
-#define REPORT_WCO_REFRESH_BUSY_COUNT 30  // (2-255)
-#define REPORT_WCO_REFRESH_IDLE_COUNT 10  // (2-255) Must be less than or equal to the busy count
+#define REPORT_OVR_REFRESH_IDLE_COUNT 15  // (1-255) Must be less than or equal to the busy count
+#define REPORT_WCO_REFRESH_BUSY_COUNT 2  // (2-255) was 30
+#define REPORT_WCO_REFRESH_IDLE_COUNT 2  // (2-255) Must be less than or equal to the busy count
 
 // The temporal resolution of the acceleration management subsystem. A higher number gives smoother
 // acceleration, particularly noticeable on machines that run at very high feedrates, but may negatively
@@ -304,7 +309,7 @@
 // NOTE: Changing this value also changes the execution time of a segment in the step segment buffer.
 // When increasing this value, this stores less overall time in the segment buffer and vice versa. Make
 // certain the step segment buffer is increased/decreased to account for these changes.
-#define ACCELERATION_TICKS_PER_SECOND 100
+#define ACCELERATION_TICKS_PER_SECOND 300 //100 or 500
 
 // Adaptive Multi-Axis Step Smoothing (AMASS) is an advanced feature that does what its name implies,
 // smoothing the stepping of multi-axis motions. This feature smooths motion particularly at low step
@@ -367,7 +372,7 @@
 // NOTE: BEWARE! The Arduino bootloader toggles the D13 pin when it powers up. If you flash Grbl with
 // a programmer (you can use a spare Arduino as "Arduino as ISP". Search the web on how to wire this.),
 // this D13 LED toggling should go away. We haven't tested this though. Please report how it goes!
-// #define USE_SPINDLE_DIR_AS_ENABLE_PIN // Default disabled. Uncomment to enable.
+//#define USE_SPINDLE_DIR_AS_ENABLE_PIN // Default disabled. Uncomment to enable.
 
 // Alters the behavior of the spindle enable pin with the USE_SPINDLE_DIR_AS_ENABLE_PIN option . By default,
 // Grbl will not disable the enable pin if spindle speed is zero and M3/4 is active, but still sets the PWM 
@@ -439,7 +444,7 @@
 // available RAM, like when re-compiling for a Mega2560. Or decrease if the Arduino begins to
 // crash due to the lack of available RAM or if the CPU is having trouble keeping up with planning
 // new incoming motions as they are executed.
-// #define BLOCK_BUFFER_SIZE 16 // Uncomment to override default in planner.h.
+#define BLOCK_BUFFER_SIZE 16 // 16 Uncomment to override default in planner.h.
 
 // Governs the size of the intermediary step segment buffer between the step execution algorithm
 // and the planner blocks. Each segment is set of steps executed at a constant velocity over a
@@ -447,7 +452,7 @@
 // block velocity profile is traced exactly. The size of this buffer governs how much step
 // execution lead time there is for other Grbl processes have to compute and do their thing
 // before having to come back and refill this buffer, currently at ~50msec of step moves.
-// #define SEGMENT_BUFFER_SIZE 6 // Uncomment to override default in stepper.h.
+#define SEGMENT_BUFFER_SIZE 12 // 6, Uncomment to override default in stepper.h.
 
 // Line buffer size from the serial input stream to be executed. Also, governs the size of
 // each of the startup blocks, as they are each stored as a string of this size. Make sure
@@ -457,12 +462,12 @@
 // can be too small and g-code blocks can get truncated. Officially, the g-code standards
 // support up to 256 characters. In future versions, this default will be increased, when
 // we know how much extra memory space we can re-invest into this.
-// #define LINE_BUFFER_SIZE 80  // Uncomment to override default in protocol.h
+#define LINE_BUFFER_SIZE 80  // Uncomment to override default in protocol.h TO DO PAUL
 
 // Serial send and receive buffer size. The receive buffer is often used as another streaming
 // buffer to store incoming blocks to be processed by Grbl when its ready. Most streaming
 // interfaces will character count and track each block send to each block response. So,
-// increase the receive buffer if a deeper receive buffer is needed for streaming and avaiable
+// increase the receive buffer if a deeper receive buffer is needed for streaming and available
 // memory allows. The send buffer primarily handles messages in Grbl. Only increase if large
 // messages are sent and Grbl begins to stall, waiting to send the rest of the message.
 // NOTE: Grbl generates an average status report in about 0.5msec, but the serial TX stream at
@@ -470,8 +475,8 @@
 // around 90-100 characters. As long as the serial TX buffer doesn't get continually maxed, Grbl
 // will continue operating efficiently. Size the TX buffer around the size of a worst-case report.
 #if !defined (STM32F103C8)
-// #define RX_BUFFER_SIZE 128 // (1-254) Uncomment to override defaults in serial.h
-// #define TX_BUFFER_SIZE 100 // (1-254)
+  #define RX_BUFFER_SIZE 128 // (1-254) Uncomment to override defaults in serial.h
+  #define TX_BUFFER_SIZE 100 // (1-254)
 #endif
 
 // A simple software debouncing feature for hard limit switches. When enabled, the interrupt 
@@ -609,10 +614,10 @@
 // NOTE: When N_PIECES < 4, unused RPM_LINE and RPM_POINT defines are not required and omitted.
 #define N_PIECES 4  // Integer (1-4). Number of piecewise lines used in script solution.
 #define RPM_MAX  11686.4  // Max RPM of model. $30 > RPM_MAX will be limited to RPM_MAX.
-#define RPM_MIN  202.5    // Min RPM of model. $31 < RPM_MIN will be limited to RPM_MIN.
-#define RPM_POINT12  6145.4  // Used N_PIECES >=2. Junction point between lines 1 and 2.
-#define RPM_POINT23  9627.8  // Used N_PIECES >=3. Junction point between lines 2 and 3.
-#define RPM_POINT34  10813.9 // Used N_PIECES = 4. Junction point between lines 3 and 4.
+#define RPM_MIN  800    // Min RPM of model. $31 < RPM_MIN will be limited to RPM_MIN.
+#define RPM_POINT12  2000  // Used N_PIECES >=2. Junction point between lines 1 and 2.
+#define RPM_POINT23  5000  // Used N_PIECES >=3. Junction point between lines 2 and 3.
+#define RPM_POINT34  8000 // Used N_PIECES = 4. Junction point between lines 3 and 4.
 #define RPM_LINE_A1  3.197101e-03  // Used N_PIECES >=1. A and B constants of line 1.
 #define RPM_LINE_B1  -3.526076e-1
 #define RPM_LINE_A2  1.722950e-2   // Used N_PIECES >=2. A and B constants of line 2.

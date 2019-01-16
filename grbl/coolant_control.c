@@ -32,16 +32,20 @@ void coolant_init()
 #ifdef STM32F103C8
 	GPIO_InitTypeDef GPIO_InitStructure;
 	RCC_APB2PeriphClockCmd(RCC_COOLANT_FLOOD_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Pin = 1 << COOLANT_FLOOD_BIT;
+	GPIO_InitStructure.GPIO_Pin = 1 << COOLANT_FLOOD_BIT |1 << COOLANT_MIST_BIT;
 	GPIO_Init(COOLANT_FLOOD_PORT, &GPIO_InitStructure);
 
-	RCC_APB2PeriphClockCmd(RCC_COOLANT_MIST_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Pin = 1 << COOLANT_MIST_BIT;
-	GPIO_Init(COOLANT_MIST_PORT, &GPIO_InitStructure);
+//	RCC_APB2PeriphClockCmd(RCC_COOLANT_MIST_PORT, ENABLE);
+//	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+//	GPIO_InitStructure.GPIO_Pin =  1 << COOLANT_MIST_BIT;
+
+//	GPIO_Init(COOLANT_MIST_PORT, &GPIO_InitStructure);
+
+	ResetFloodEnablebit();
+	ResetMistEnablebit();
 #endif
   coolant_stop();
 }
@@ -51,48 +55,60 @@ void coolant_init()
 uint8_t coolant_get_state()
 {
   uint8_t cl_state = COOLANT_STATE_DISABLE;
-#if defined(AVRTARGET) || defined(STM32F103C8)
+//#if defined(AVRTARGET) || defined(STM32F103C8)
+//#if defined(STM32F103C8)
   #ifdef INVERT_COOLANT_FLOOD_PIN
-    if (bit_isfalse(
-#ifdef AVRTARGET
-		COOLANT_FLOOD_PORT
-#else
-		GPIO_ReadOutputData(COOLANT_FLOOD_PORT)
-#endif
-		,(1 << COOLANT_FLOOD_BIT))) {
+    //if (bit_isfalse(
+    if (bit_istrue(GPIO_ReadOutputData(COOLANT_FLOOD_PORT),(1 << COOLANT_FLOOD_BIT))){
+    	cl_state &= COOLANT_STATE_FLOOD;
+    }
+//#ifdef AVRTARGET
+//		COOLANT_FLOOD_PORT
+//#else
+//		GPIO_ReadOutputData(COOLANT_FLOOD_PORT)
+//#endif
+//		,(1 << COOLANT_FLOOD_BIT))) {
   #else
-    if (bit_istrue(
-#ifdef AVRTARGET
-		COOLANT_FLOOD_PORT
-#else
-		GPIO_ReadOutputData(COOLANT_FLOOD_PORT)
-#endif
-		,(1 << COOLANT_FLOOD_BIT))) {
-  #endif
+    //if (bit_istrue(
+    if (bit_istrue(GPIO_ReadOutputData(COOLANT_FLOOD_PORT),(1 << COOLANT_FLOOD_BIT))){
+//#ifdef AVRTARGET
+//		COOLANT_FLOOD_PORT
+//#else
+		//GPIO_ReadOutputData(COOLANT_FLOOD_PORT)
+//#endif
+		//,(1 << COOLANT_FLOOD_BIT))) {
+  //#endif
     cl_state |= COOLANT_STATE_FLOOD;
   }
+  #endif
   #ifdef ENABLE_M7
     #ifdef INVERT_COOLANT_MIST_PIN
-      if (bit_isfalse(
-#ifdef AVRTARGET
-		  COOLANT_MIST_PORT
-#else
-		  GPIO_ReadOutputData(COOLANT_MIST_PORT)
-#endif
-		  ,(1 << COOLANT_MIST_BIT))) {
-    #else
-      if (bit_istrue(
-#ifdef AVRTARGET
-		  COOLANT_MIST_PORT
-#else
-		  GPIO_ReadOutputData(COOLANT_MIST_PORT)
-#endif
-		  ,(1 << COOLANT_MIST_BIT))) {
-    #endif
-      cl_state |= COOLANT_STATE_MIST;
+//      if (bit_isfalse(
+    if (bit_istrue(GPIO_ReadOutputData(COOLANT_FLOOD_PORT),(1 << COOLANT_MIST_BIT))){
+    	cl_state &= COOLANT_STATE_MIST;
     }
+//#ifdef AVRTARGET
+//		  COOLANT_MIST_PORT
+//#else
+//		  GPIO_ReadOutputData(COOLANT_MIST_PORT)
+//    #endif
+//		  ,(1 << COOLANT_MIST_BIT))) {
+    #else
+//      if (bit_istrue(
+      if (bit_istrue(GPIO_ReadOutputData(COOLANT_MIST_PORT),(1 << COOLANT_MIST_BIT))){
+    	cl_state |= COOLANT_STATE_MIST;
+      }
+//#ifdef AVRTARGET
+//		  COOLANT_MIST_PORT
+//#else
+//		  GPIO_ReadOutputData(COOLANT_MIST_PORT)
+    #endif
+//		  ,(1 << COOLANT_MIST_BIT))) {
+//    #endif
+ //     cl_state |= COOLANT_STATE_MIST;
+ //   }
   #endif
-#endif
+//#endif
   return(cl_state);
 }
 
@@ -106,13 +122,17 @@ void coolant_stop()
 #ifdef AVRTARGET
     COOLANT_FLOOD_PORT |= (1 << COOLANT_FLOOD_BIT);
 #else
-	GPIO_SetBits(COOLANT_FLOOD_PORT,1 << COOLANT_FLOOD_BIT);
+	GPIO_SetBits(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT);
 #endif
   #else
 #ifdef AVRTARGET
 	COOLANT_FLOOD_PORT &= ~(1 << COOLANT_FLOOD_BIT);
 #else
-	GPIO_ResetBits(COOLANT_FLOOD_PORT,1 << COOLANT_FLOOD_BIT);
+	 //GPIO_Write(DIRECTION_PORT, (GPIO_ReadOutputData(DIRECTION_PORT) & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK));
+	//GPIO_ResetBits(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT);
+	//GPIO_ResetBits(COOLANT_FLOOD_PORT,1 << COOLANT_FLOOD_BIT);
+	ResetFloodEnablebit();
+
 #endif
   #endif
   #ifdef ENABLE_M7
@@ -120,13 +140,16 @@ void coolant_stop()
 #ifdef AVRTARGET
       COOLANT_MIST_PORT |= (1 << COOLANT_MIST_BIT);
 #else
-	GPIO_SetBits(COOLANT_MIST_PORT, 1 << COOLANT_MIST_BIT);
+	//GPIO_SetBits(COOLANT_MIST_PORT, COOLANT_MIST_BIT);
+      SetMistEnablebit();
 #endif
     #else
 #ifdef AVRTARGET
 	COOLANT_MIST_PORT &= ~(1 << COOLANT_MIST_BIT);
 #else
-	GPIO_ResetBits(COOLANT_MIST_PORT, 1 << COOLANT_MIST_BIT);
+//	GPIO_ResetBits(COOLANT_MIST_PORT, COOLANT_MIST_BIT);
+	ResetMistEnablebit();
+
 #endif
     #endif
   #endif
@@ -154,13 +177,17 @@ void coolant_set_state(uint8_t mode)
 #ifdef AVRTARGET
         COOLANT_FLOOD_PORT &= ~(1 << COOLANT_FLOOD_BIT);
 #else
-		GPIO_ResetBits(COOLANT_FLOOD_PORT,1 << COOLANT_FLOOD_BIT);
+		GPIO_ResetBits(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT);
 #endif
       #else
 #ifdef AVRTARGET
 		COOLANT_FLOOD_PORT |= (1 << COOLANT_FLOOD_BIT);
 #else
-		GPIO_SetBits(COOLANT_FLOOD_PORT,1 << COOLANT_FLOOD_BIT);
+		SetFloodEnablebit();
+
+		//GPIO_SetBits(COOLANT_FLOOD_PORT, COOLANT_FLOOD_BIT);
+		//GPIO_SetBits(COOLANT_FLOOD_PORT,1 << COOLANT_FLOOD_BIT);
+//		GPIO_SetBits(GPIOB,COOLANT_FLOOD_BIT);
 #endif
       #endif
     }
@@ -171,13 +198,16 @@ void coolant_set_state(uint8_t mode)
 #ifdef AVRTARGET
 		  COOLANT_MIST_PORT &= ~(1 << COOLANT_MIST_BIT);
 #else
-	GPIO_ResetBits(COOLANT_MIST_PORT, 1 << COOLANT_MIST_BIT);
+	//GPIO_ResetBits(COOLANT_MIST_PORT, COOLANT_MIST_BIT);
+	ResetMistEnablebit();
 #endif
         #else
 #ifdef AVRTARGET
 		  COOLANT_MIST_PORT |= (1 << COOLANT_MIST_BIT);
 #else
-		  GPIO_SetBits(COOLANT_MIST_PORT, 1 << COOLANT_MIST_BIT);
+		 SetMistEnablebit();
+
+		  // GPIO_SetBits(COOLANT_MIST_PORT, COOLANT_MIST_BIT);
 #endif
         #endif
       }

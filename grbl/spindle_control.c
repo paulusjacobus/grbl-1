@@ -20,132 +20,216 @@
 */
 
 #include "grbl.h"
-
+#include "stm32f10x_gpio.h"
 
 #ifdef VARIABLE_SPINDLE
-  static float pwm_gradient; // Precalulated value to speed up rpm to PWM conversions.
+  //static float pwm_gradient; // Pre-calculated value to speed up rpm to PWM conversions.
+   float pwm_gradient;
 #endif
 
+
+uint16_t time_base;
 
 //void spindle_init()
-void spindle_init(uint8_t pwm_mode)
+void spindle_init(uint8_t pwm_mode) // Added the pwm mode, Paul
 {
-#ifdef VARIABLE_SPINDLE
-  pwm_gradient = SPINDLE_PWM_RANGE / (settings.rpm_max - settings.rpm_min);
-#endif
 
-#ifdef AVRTARGET
-  #ifdef VARIABLE_SPINDLE
+//#ifdef VARIABLE_SPINDLE
+////  pwm_gradient = SPINDLE_PWM_RANGE / (settings.rpm_max - settings.rpm_min);
+//  pwm_gradient = (TIM_TimeBaseInitStruct.TIM_Period - 5) / (settings.rpm_max - settings.rpm_min);
+//#endif
 
-    // Configure variable spindle PWM and enable pin, if requried. On the Uno, PWM and enable are
-    // combined unless configured otherwise.
-    SPINDLE_PWM_DDR |= (1<<SPINDLE_PWM_BIT); // Configure as PWM output pin.
-    SPINDLE_TCCRA_REGISTER = SPINDLE_TCCRA_INIT_MASK; // Configure PWM output compare timer
-    SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK;
-    #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
-      SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
-    #else
-      SPINDLE_DIRECTION_DDR |= (1<<SPINDLE_DIRECTION_BIT); // Configure as output pin.
-    #endif
+  /*
+   * Author Paul
+   * Initialise the Enable (CS) and Direction (CW/CWW) ports for the spindle component
+   * These need to be programmed first before the timer. Other way around does not initialise
+   * the direction, enable and timer functions...
+   */
+  GPIO_InitTypeDef GPIO_InitStructureControl;
+#ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
+// configure the spin enable port only
+	RCC_APB2PeriphClockCmd(RCC_SPINDLE_ENABLE_PORT, ENABLE);
+	GPIO_InitStructureControl.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructureControl.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(SPINDLE_ENABLE_PORT, &GPIO_InitStructureControl);
+    GPIO_InitStructureControl.GPIO_Pin =  1 << SPINDLE_ENABLE_BIT | 1 << SPINDLE_DIRECTION_BIT;
+    GPIO_Init(SPINDLE_ENABLE_PORT, &GPIO_InitStructureControl);
+    ResetSpindleEnablebit();
 
   #else
+ // combination of 2 ports used: enable and direction
+	RCC_APB2PeriphClockCmd(RCC_SPINDLE_ENABLE_PORT, ENABLE);
+	GPIO_InitStructureControl.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructureControl.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(SPINDLE_ENABLE_PORT, &GPIO_InitStructureControl);
+    GPIO_InitStructureControl.GPIO_Pin =   1 << SPINDLE_ENABLE_BIT;
+    GPIO_Init(SPINDLE_ENABLE_PORT, &GPIO_InitStructureControl);
+    // debug
+    GPIO_PinLockConfig(SPINDLE_ENABLE_PORT,SPINDLE_ENABLE_BIT);
 
-    // Configure no variable spindle and only enable pin.
-    SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
-    SPINDLE_DIRECTION_DDR |= (1<<SPINDLE_DIRECTION_BIT); // Configure as output pin.
 
-  #endif
+	RCC_APB2PeriphClockCmd(RCC_SPINDLE_DIRECTION_PORT, ENABLE);
+	GPIO_InitStructureControl.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructureControl.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructureControl.GPIO_Pin =  1 << SPINDLE_DIRECTION_BIT;
+	GPIO_Init(SPINDLE_DIRECTION_PORT, &GPIO_InitStructureControl);
+	// debug
+	GPIO_PinLockConfig(SPINDLE_DIRECTION_PORT,SPINDLE_DIRECTION_BIT);
+
+	ResetSpindleEnablebit();
+	ResetSpindleDirectionBit();
 #endif
+
 #if defined (STM32F103C8)
-	GPIO_InitTypeDef GPIO_InitStructure;
-	//RCC_APB2PeriphClockCmd(RCC_SPINDLE_ENABLE_PORT, ENABLE);
-	//GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	//GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
-        GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-        GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-        GPIO_Init(GPIOB, &gpioStructure);
-	
-#ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
-  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_ENABLE_BIT;
-#else
-  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_DIRECTION_BIT;
-#endif
-  GPIO_Init(SPINDLE_ENABLE_PORT, &GPIO_InitStructure);
+/*
+ * Author Paul
+ */
 
+    RCC_APB2PeriphClockCmd(RCC_SPINDLE_ENABLE_PORT|RCC_SPINDLE_PWM_PORT|RCC_APB2Periph_AFIO,ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4,ENABLE);
+    //RCC->APB1ENR |= RCC_APB1Periph_TIM4;
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_StructInit(&GPIO_InitStructure);
+	//M3, M4, M5 working with this step enable code
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_InitStructure.GPIO_Mode =  GPIO_Mode_AF_PP;
+
+	/*
+	 * old logical Arduino Grbl bug, port mode is set to PP_AF for timer while it has to be GPIO_Mode_Out_PP
+	 * for the enable and direction pins!!
+	 */
+//#ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
+//  //GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_ENABLE_BIT; // configure the spin enable port
+//  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_DIRECTION_BIT;//
+//#else
+//  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_DIRECTION_BIT | 1 << SPINDLE_ENABLE_BIT | 1 << SPINDLE_PWM_BIT;
+//#endif
+//  GPIO_Init(SPINDLE_ENABLE_PORT, &GPIO_InitStructure);
+//#endif
 
 #ifdef VARIABLE_SPINDLE
-  //RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE); // move to timer4
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);	// Timer 4 is on APB1
-  TIM_TimeBaseInitTypeDef timerInitStructure;
-  TIM_OCInitTypeDef outputChannelInit = { 0 };
-  TIM_TimeBaseStructInit(&timerInitStructure);	
-//timer prescaler value = (72MHz/Freq required)/ PWM resolution steps
-  //timerInitStructure.TIM_Prescaler = F_CPU / 1000000 - 1; // 1000 This parameter can be a number between 0x0000 and 0xFFFF
-	switch (pwm_mode) {
-		case 0: 
-			timerInitStructure.TIM_Prescaler = 65 ;//default setting medium freq 275Hz
-			break;
-		case 1:
-			timerInitStructure.TIM_Prescaler = 149 ; //dither mode low freq 120Hz
-			break;
-		case 2:
-			timerInitStructure.TIM_Prescaler = 59 ; //smooth high freq 300Hz
-			break;
-		case 3:
-			timerInitStructure.TIM_Prescaler = 89 ; //ultra smooth highest freq 200Hz
-			break;
-		case 4:
-			timerInitStructure.TIM_Prescaler = F_CPU / 4096 - 1; //default setting medium freq 4394Hz
-			break;	
-		case 5:
-			timerInitStructure.TIM_Prescaler = F_CPU / 2048 - 1; //default setting medium freq 8789Hz
-			break;
-		case 6:
-			timerInitStructure.TIM_Prescaler = F_CPU / 1024 - 1; //default setting medium freq 17579Hz
-			break;
-		default:
-			break;
-	}	
-	
-  timerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  timerInitStructure.TIM_Period = SPINDLE_PWM_MAX_VALUE - 1;
-  //timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-  timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV4; // to allow lower frequencies F_CPU 18MHz
-  timerInitStructure.TIM_RepetitionCounter = 0;
-  TIM_TimeBaseInit(TIM1, &timerInitStructure);
 
-  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1; //or PWM0 test this
-  outputChannelInit.TIM_Pulse = 0;     // initi speed is 0
-  outputChannelInit.TIM_OutputState = TIM_OutputState_Enable;
-  outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+  RCC->APB1ENR |= RCC_APB1Periph_TIM4;
 
-  //TIM_OC1Init(TIM1, &outputChannelInit); // move to timer 4, channel4
-  TIM_OC4Init(TIM4, &outputChannelInit); 
-  //	
-  // newly added for test purposes only
-  //TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
-  //GPIO_PinAFConfig(GPIOB, SPINDLE_PWM_BIT, GPIO_AF_TIM4); // config alternate function on GPIOB pin 9
-  // end newly added
-  //	
-  TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable); // use timer 4, ch4
-  //TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Enable);	
-  //TIM_CtrlPWMOutputs(TIM1, DISABLE); move to TIM4 which has an equivalent
-	
-  TIM_Cmd(TIM4, ENABLE); // use timer 4
-  //TIM_Cmd(TIM1, ENABLE);
-	
-  RCC_APB1PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE); // GPIO pin is on APB1
-  //RCC_APB2PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE);	
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;//GPIO_Speed_2MHz or 10MHz
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; // alternate function and push/pull
-  GPIO_InitStructure.GPIO_Pin = 1 << SPINDLE_PWM_BIT; // or GPIO_Pin_9
-  GPIO_Init(SPINDLE_PWM_PORT, &GPIO_InitStructure);
+  TIM_SelectMasterSlaveMode(TIM4,TIM_MasterSlaveMode_Disable);
+  TIM_InternalClockConfig(TIM4);
+  TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStruct;
+  TIM_OCInitTypeDef TIM_OCInitStruct;
 
+  switch (pwm_mode) {
+    case 0://60 Hz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 60000 - 1; //default setting medium freq 60Hz. 1000 pwm steps
+    	TIM_TimeBaseInitStruct.TIM_Period= 999;
+      break;
+    case 1://125 Hz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 125000 - 1; //dither mode low freq 125Hz
+    	TIM_TimeBaseInitStruct.TIM_Period = 999;
+      break;
+    case 2://250Hz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 250000 - 1; //smooth high freq 250Hz
+    	TIM_TimeBaseInitStruct.TIM_Period = 999;
+      break;
+    case 3://500Hz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 500000 - 1; //ultra smooth highest freq 500Hz
+    	TIM_TimeBaseInitStruct.TIM_Period = 999;
+      break;
+
+    case 4://1kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 1000000 - 1; //default setting medium freq 1kHz
+    	TIM_TimeBaseInitStruct.TIM_Period = 999;
+      break;
+
+    case 5://1.5kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 1500000 - 1; //default setting medium freq 1.5Kc
+    	TIM_TimeBaseInitStruct.TIM_Period = 999;
+      break;
+    case 6://3kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 300000 - 1; //smooth high freq 250Hz
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 7://4.5kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 4500000 - 1; //default setting medium freq 4.5kC
+    	TIM_TimeBaseInitStruct.TIM_Period = 999;
+      break;
+    case 8://6kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 600000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 9://8kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 800000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+    case 10://10kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 1000000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 11://15kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 1500000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 12://30kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 3000000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 13://45kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 4500000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 14://60kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 6000000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    case 15://80kHz
+    	TIM_TimeBaseInitStruct.TIM_Prescaler = F_CPU / 7500000 - 1;
+    	TIM_TimeBaseInitStruct.TIM_Period = 99;
+      break;
+    default:
+     break;
+  }
+  TIM_TimeBaseInitStruct.TIM_CounterMode = TIM_CounterMode_Up;
+  /*
+   * author Paul
+   */
+
+  TIM_TimeBaseInitStruct.TIM_ClockDivision = TIM_CKD_DIV1;
+  TIM_TimeBaseInit(TIM4, &TIM_TimeBaseInitStruct);
+
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+  TIM_ARRPreloadConfig(TIM4,ENABLE);
+  TIM_OCInitStruct.TIM_OCMode = TIM_OCMode_PWM1; // 0 counting up mode
+  TIM_OCInitStruct.TIM_Pulse = 0;     // initit speed is 0
+  TIM_OCInitStruct.TIM_OutputState = TIM_OutputState_Enable;
+  TIM_OCInitStruct.TIM_OCPolarity = TIM_OCPolarity_High; // Paul, TIM_OCPolarity_High for SG, Low for Mini Gerbil
+  TIM_OC4Init(TIM4, &TIM_OCInitStruct);
+  TIM_OC4PreloadConfig(TIM4, TIM_OCPreload_Enable);
+  TIM_Cmd(TIM4,ENABLE);
+
+  RCC_APB2PeriphClockCmd(RCC_SPINDLE_PWM_PORT, ENABLE); // enable the clock
+
+  GPIO_InitTypeDef gpio_InitStructure;
+  GPIO_StructInit(&gpio_InitStructure);
+  gpio_InitStructure.GPIO_Pin = SPINDLE_PWM_BIT;
+  gpio_InitStructure.GPIO_Speed =  GPIO_Speed_2MHz;
+  gpio_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+  GPIO_Init(SPINDLE_PWM_PORT, &gpio_InitStructure);
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4,ENABLE);
+  TIM_Cmd(TIM4,ENABLE);
+  // Does we want to lock in the PWM pin forever?
+  //GPIO_PinLockConfig(SPINDLE_PWM_PORT, SPINDLE_PWM_BIT);
+
+  GPIO_ResetBits(SPINDLE_PWM_PORT, SPINDLE_PWM_BIT);
+
+#ifdef VARIABLE_SPINDLE
+//  pwm_gradient = SPINDLE_PWM_RANGE / (settings.rpm_max - settings.rpm_min);
+  pwm_gradient = (TIM_TimeBaseInitStruct.TIM_Period - 5) / (settings.rpm_max - settings.rpm_min);
+  time_base = TIM_TimeBaseInitStruct.TIM_Period;
+#endif
 
 #endif
+
 #endif
+
 
   spindle_stop();
 }
@@ -160,10 +244,13 @@ uint8_t spindle_get_state()
   pin = SPINDLE_ENABLE_PORT;
 #endif
 #if defined (STM32F103C8)
+ //pin = SPINDLE_ENABLE_PORT; //GPIO_ReadInputData(SPINDLE_ENABLE_PORT);
   pin = GPIO_ReadInputData(SPINDLE_ENABLE_PORT);
+//  printString("\n\l spindle state = ");
+//  printInteger(pin);
 #endif
 		  // No spindle direction output pin. 
-			#ifdef INVERT_SPINDLE_ENABLE_PIN
+		#ifdef INVERT_SPINDLE_ENABLE_PIN
 			  if (bit_isfalse(pin,(1<<SPINDLE_ENABLE_BIT))) { return(SPINDLE_STATE_CW); }
 	    #else
 	 			if (bit_istrue(pin,(1<<SPINDLE_ENABLE_BIT))) { return(SPINDLE_STATE_CW); }
@@ -207,29 +294,54 @@ uint8_t spindle_get_state()
 void spindle_stop()
 {
 #ifdef VARIABLE_SPINDLE
-#ifdef AVRTARGET
-    SPINDLE_TCCRA_REGISTER &= ~(1<<SPINDLE_COMB_BIT); // Disable PWM. Output voltage is zero.
-#endif
-#if defined (STM32F103C8)
-    TIM_CtrlPWMOutputs(TIM1, DISABLE);
-#endif
+	#ifdef AVRTARGET
+		SPINDLE_TCCRA_REGISTER &= ~(1<<SPINDLE_COMB_BIT); // Disable PWM. Output voltage is zero.
+	#endif
+	#if defined (STM32F103C8)
 
-    #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
-      #ifdef INVERT_SPINDLE_ENABLE_PIN
-        SetSpindleEnablebit();
-      #else
-        ResetSpindleEnablebit();
-      #endif
-    #endif
-#else
-    #ifdef INVERT_SPINDLE_ENABLE_PIN
-      SetSpindleEnablebit();
-    #else
-      ResetSpindleEnablebit();
-    #endif
+		//TIM_SetCompare4(TIM4, settings.rpm_max - SPINDLE_PWM_OFF_VALUE);
+		TIM_SetCompare4(TIM4, 0);
+	#endif
+
+
+	#ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
+		  #ifdef INVERT_SPINDLE_ENABLE_PIN
+			SetSpindleEnablebit();
+		  #else
+			ResetSpindleEnablebit();
+		  #endif
+	//    #endif //Pauls bug fix of original code...
+	#else
+		#ifdef INVERT_SPINDLE_ENABLE_PIN
+		  SetSpindleEnablebit();
+
+		#else
+		  ResetSpindleEnablebit();
+
+		#endif
+	#endif
 #endif
 }
 
+/*
+ * Author Paul
+ */
+void differentiate_spindle_speed(SPINDLE_PWM_TYPE set_pwm_value, SPINDLE_PWM_TYPE pwm_value)
+{
+ if ( set_pwm_value > ((TIM4->CCR4) *1.25)){
+	while (set_pwm_value > (TIM4->CCR4) ){
+		 TIM_SetCompare4(TIM4, ((TIM4->CCR4)+1));
+         if (settings.soft_start >= 300){
+        	 delay_ms(300);
+         } else {
+		 delay_ms(settings.soft_start);
+         }
+	 }
+ } else {
+		 TIM_SetCompare4(TIM4, set_pwm_value);
+	 }
+
+}
 
 #ifdef VARIABLE_SPINDLE
   // Sets spindle speed PWM output and enable pin, if configured. Called by spindle_set_state()
@@ -240,8 +352,8 @@ void spindle_stop()
 		SPINDLE_OCR_REGISTER = pwm_value; // Set PWM output level.
 #endif
 #if defined (STM32F103C8)
-		TIM1->CCR1 = pwm_value;//orginal way of setting the period
-	        //TIM_SetCompare4(TIM4, pwm_value); Cookbook's way of setting the period
+		TIM_SetCompare4(TIM4, pwm_value);
+
 #endif
 		#ifdef SPINDLE_ENABLE_OFF_WITH_ZERO_SPEED
      if (pwm_value == SPINDLE_PWM_OFF_VALUE) {
@@ -265,78 +377,39 @@ void spindle_stop()
 				SPINDLE_TCCRA_REGISTER &= ~(1 << SPINDLE_COMB_BIT); // Disable PWM. Output voltage is zero.
 			#endif
 			#if defined (STM32F103C8)
-				TIM_CtrlPWMOutputs(TIM1, DISABLE);
+
+				TIM_SetCompare4(TIM4, pwm_value);
+
 			#endif
 			} else {
 			#ifdef AVRTARGET
       SPINDLE_TCCRA_REGISTER |= (1<<SPINDLE_COMB_BIT); // Ensure PWM output is enabled.
 			#endif
 			#if defined (STM32F103C8)
-      TIM_CtrlPWMOutputs(TIM1, ENABLE);
+
+                 TIM_SetCompare4(TIM4, pwm_value); // 13/08/2018
+
+				#ifdef INVERT_SPINDLE_ENABLE_PIN
+					ResetSpindleEnablebit(); // Turn Spindle enable On (0 Volt)
+				#else
+					SetSpindleEnablebit(); // Turn Spindle enable On (5V)
+				#endif
 			#endif
 			}
 		#endif
 	}
+#endif
 
-
-  #ifdef ENABLE_PIECEWISE_LINEAR_SPINDLE
-	// Called by spindle_set_state() and step segment generator. Keep routine small and efficient.
-	SPINDLE_PWM_TYPE spindle_compute_pwm_value(float rpm) // 328p PWM register is 8-bit.
-	{
-		SPINDLE_PWM_TYPE pwm_value;
-		rpm *= (0.010*sys.spindle_speed_ovr); // Scale by spindle speed override value.
-																					// Calculate PWM register value based on rpm max/min settings and programmed rpm.
-		if ((settings.rpm_min >= settings.rpm_max) || (rpm >= RPM_MAX)) {
-			rpm = RPM_MAX;
-			pwm_value = SPINDLE_PWM_MAX_VALUE;
-		}
-		else if (rpm <= RPM_MIN) {
-			if (rpm == 0.0) { // S0 disables spindle
-				pwm_value = SPINDLE_PWM_OFF_VALUE;
-			}
-			else {
-				rpm = RPM_MIN;
-				pwm_value = SPINDLE_PWM_MIN_VALUE;
-			}
-		}
-		else {
-			// Compute intermediate PWM value with linear spindle speed model via piecewise linear fit model.
-#if (N_PIECES > 3)
-			if (rpm > RPM_POINT34) {
-				pwm_value = floorf(RPM_LINE_A4*rpm - RPM_LINE_B4);
-			}
-			else
-#endif
-#if (N_PIECES > 2)
-				if (rpm > RPM_POINT23) {
-					pwm_value = floorf(RPM_LINE_A3*rpm - RPM_LINE_B3);
-				}
-				else
-#endif
-#if (N_PIECES > 1)
-					if (rpm > RPM_POINT12) {
-						pwm_value = floorf(RPM_LINE_A2*rpm - RPM_LINE_B2);
-					}
-					else
-#endif
-					{
-						pwm_value = floorf(RPM_LINE_A1*rpm - RPM_LINE_B1);
-					}
-		}
-		sys.spindle_speed = rpm;
-		return(pwm_value);
-	}
-  #else
-	// Called by spindle_set_state() and step segment generator. Keep routine small and efficient.
-	SPINDLE_PWM_TYPE spindle_compute_pwm_value(float rpm) // 328p PWM register is 8-bit.
+SPINDLE_PWM_TYPE spindle_compute_pwm_value(float rpm) // 328p PWM register is 8-bit.
 	{
 		SPINDLE_PWM_TYPE pwm_value;
 		rpm *= (0.010f*sys.spindle_speed_ovr); // Scale by spindle speed override value.
-																					 // Calculate PWM register value based on rpm max/min settings and programmed rpm.
+	// Calculate PWM register value based on rpm max/min settings and programmed rpm.
 		if ((settings.rpm_min >= settings.rpm_max) || (rpm >= settings.rpm_max)) {
 			// No PWM range possible. Set simple on/off spindle control pin state.
 			sys.spindle_speed = settings.rpm_max;
-			pwm_value = SPINDLE_PWM_MAX_VALUE;
+			//pwm_value = SPINDLE_PWM_MAX_VALUE;
+			pwm_value = time_base;
 		}
 		else if (rpm <= settings.rpm_min) {
 			if (rpm == 0.0f) { // S0 disables spindle
@@ -352,12 +425,13 @@ void spindle_stop()
 			// Compute intermediate PWM value with linear spindle speed model.
 			// NOTE: A nonlinear model could be installed here, if required, but keep it VERY light-weight.
 			sys.spindle_speed = rpm;
+
 			pwm_value = (SPINDLE_PWM_TYPE)floorf((rpm - settings.rpm_min)*pwm_gradient) + SPINDLE_PWM_MIN_VALUE;
 		}
+//		printFloat_RateValue(Command);
+
 		return(pwm_value);
 	}
-  #endif
-#endif
 
 
 // Immediately sets spindle running state with direction and spindle rpm via PWM, if enabled.
@@ -392,17 +466,34 @@ void spindle_stop()
       if (settings.flags & BITFLAG_LASER_MODE) {
         if (state == SPINDLE_ENABLE_CCW) { rpm = 0.0f; } // TODO: May need to be rpm_min*(100/MAX_SPINDLE_SPEED_OVERRIDE);
       }
-    spindle_set_speed(spindle_compute_pwm_value(rpm));
+/*
+ * Author Paul; soft start feature
+ */
+
+      if (settings.soft_start == 0){
+      spindle_set_speed(spindle_compute_pwm_value(rpm));}
+      else{
+    	  current_pwm = TIM4->CCR4 ;
+
+          differentiate_spindle_speed(spindle_compute_pwm_value(rpm),current_pwm);
+      }
+
+
+		#endif
+		#ifdef INVERT_SPINDLE_ENABLE_PIN // Paul, bug fix of orginal code
+		  ResetSpindleEnablebit();
+		#else
+		  SetSpindleEnablebit();
 		#endif
     #if (defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && \
         !defined(SPINDLE_ENABLE_OFF_WITH_ZERO_SPEED)) || !defined(VARIABLE_SPINDLE)
       // NOTE: Without variable spindle, the enable bit should just turn on or off, regardless
       // if the spindle speed value is zero, as its ignored anyhow.
-      #ifdef INVERT_SPINDLE_ENABLE_PIN
-        ResetSpindleEnablebit();
-      #else
-        SetSpindleEnablebit();
-      #endif    
+//      #ifdef INVERT_SPINDLE_ENABLE_PIN
+//        ResetSpindleEnablebit();
+//      #else
+//        SetSpindleEnablebit();
+//      #endif
     #endif
   }
   
@@ -427,3 +518,5 @@ void spindle_stop()
     _spindle_set_state(state);
   }
 #endif
+
+

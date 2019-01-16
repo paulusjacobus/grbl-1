@@ -18,7 +18,11 @@
   You should have received a copy of the GNU General Public License
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+/*
+My notes 1/8/2018: adjusted the pwm variables from 8 bits to 16 bits
+variables: spindle_pwm, current_spindle_pwm
+maybe (CHECK with testing): is_pwm_rate_adjusted is still 8 bits but might need to increase to 16!
+*/
 #include "grbl.h"
 
 #ifdef STM32F103C8
@@ -29,6 +33,9 @@ typedef int bool;
 void TIM_Configuration(TIM_TypeDef* TIMER, u16 Period, u16 Prescaler, u8 PP);
 #endif
 
+//#ifdef LEDBLINK // Paul to test isr timing via led gpio13 toggles the ISR on entrance and exit
+//void LedBlink(void);
+//#endif
 
 // Some useful constants.
 #define DT_SEGMENT (1.0f/(ACCELERATION_TICKS_PER_SECOND*60.0f)) // min/segment
@@ -47,19 +54,24 @@ const PORTPINDEF step_pin_mask[N_AXIS] =
 	1 << X_STEP_BIT,
 	1 << Y_STEP_BIT,
 	1 << Z_STEP_BIT,
-
+	1 << A_STEP_BIT, //additional axis Paul 6/08/2018
+	1 << B_STEP_BIT, // 2nd additional axis
 };
 const PORTPINDEF direction_pin_mask[N_AXIS] =
 {
 	1 << X_DIRECTION_BIT,
 	1 << Y_DIRECTION_BIT,
 	1 << Z_DIRECTION_BIT,
+	1 << A_DIRECTION_BIT, //additional axis
+	1 << B_DIRECTION_BIT, // 2nd Additional axis
 };
 const PORTPINDEF limit_pin_mask[N_AXIS] =
 {
 	1 << X_LIMIT_BIT,
 	1 << Y_LIMIT_BIT,
 	1 << Z_LIMIT_BIT,
+	1 << A_LIMIT_BIT, //additional axis
+	1 << B_LIMIT_BIT, // 2nd additional axis
 };
 
 // Define Adaptive Multi-Axis Step-Smoothing(AMASS) levels and cutoff frequencies. The highest level
@@ -69,14 +81,18 @@ const PORTPINDEF limit_pin_mask[N_AXIS] =
 // timer, and the CPU overhead. Level 0 (no AMASS, normal operation) frequency bin starts at the
 // Level 1 cutoff frequency and up to as fast as the CPU allows (over 30kHz in limited testing).
 // NOTE: AMASS cutoff frequency multiplied by ISR overdrive factor must not exceed maximum step frequency.
-// NOTE: Current settings are set to overdrive the ISR to no more than 16kHz, balancing CPU overhead
+// NOTE: Current settings are set to overdrive the ISR to no more than AVR 16kHz (Me, STM32 72kHz), balancing CPU overhead
 // and timer accuracy.  Do not alter these settings unless you know what you are doing.
 #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
-	#define MAX_AMASS_LEVEL 3
+	#define MAX_AMASS_LEVEL 3 //2
 	// AMASS_LEVEL0: Normal operation. No AMASS. No upper cutoff frequency. Starts at LEVEL1 cutoff frequency.
-	#define AMASS_LEVEL1 (F_CPU/8000) // Over-drives ISR (x2). Defined as F_CPU/(Cutoff frequency in Hz)
-	#define AMASS_LEVEL2 (F_CPU/4000) // Over-drives ISR (x4)
-	#define AMASS_LEVEL3 (F_CPU/2000) // Over-drives ISR (x8)
+#define AMASS_LEVEL1 (F_CPU/36000) // 2000 Over-drives ISR (x2). Defined as F_CPU/(Cutoff frequency in Hz)
+#define AMASS_LEVEL2 (F_CPU/18000) // 4000 Over-drives ISR (x4). 13/08/2018 adjusted by Paul
+#define AMASS_LEVEL3 (F_CPU/9000) // 8000 Over-drives ISR (x8)
+
+//  #define AMASS_LEVEL1 (F_CPU/8000) // 2000 Over-drives ISR (x2). Defined as F_CPU/(Cutoff frequency in Hz)
+//  #define AMASS_LEVEL2 (F_CPU/4000) // 4000 Over-drives ISR (x4)
+//  #define AMASS_LEVEL3 (F_CPU/2000) // 8000 Over-drives ISR (x8)
 
   #if MAX_AMASS_LEVEL <= 0
     error "AMASS must have 1 or more levels to operate correctly."
@@ -103,7 +119,7 @@ LONGLONG nTimer0Out = 0;
 typedef struct {
   uint32_t steps[N_AXIS];
   uint32_t step_event_count;
-  uint8_t direction_bits;
+  uint16_t direction_bits; // paul, from 8 to 16 bits
   #ifdef VARIABLE_SPINDLE
     uint8_t is_pwm_rate_adjusted; // Tracks motions that require constant laser power/rate
   #endif
@@ -115,8 +131,10 @@ static st_block_t st_block_buffer[SEGMENT_BUFFER_SIZE-1];
 // planner buffer. Once "checked-out", the steps in the segments buffer cannot be modified by
 // the planner, where the remaining planner block steps still can.
 typedef struct {
-  uint16_t n_step;           // Number of step events to be executed for this segment
-  uint16_t cycles_per_tick;  // Step distance traveled per ISR tick, aka step rate.
+//  uint16_t n_step;           // Number of step events to be executed for this segment
+  uint32_t n_step;           // Number of step events to be executed for this segment
+//  uint16_t cycles_per_tick;  // Step distance traveled per ISR tick, aka step rate.
+  uint32_t cycles_per_tick;  // Paul, Step distance traveled per ISR tick, aka step rate.
   uint8_t  st_block_index;   // Stepper block data index. Uses this information to execute this segment.
   #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     uint8_t amass_level;    // Indicates AMASS level for the ISR to execute this segment
@@ -124,7 +142,7 @@ typedef struct {
     uint8_t prescaler;      // Without AMASS, a prescaler is required to adjust for slow timing.
   #endif
   #ifdef VARIABLE_SPINDLE
-    uint8_t spindle_pwm;
+    uint16_t spindle_pwm; // uint8_t spindle_pwm;
   #endif
 } segment_t;
 static segment_t segment_buffer[SEGMENT_BUFFER_SIZE];
@@ -134,14 +152,16 @@ typedef struct {
   // Used by the bresenham line algorithm
   uint32_t counter_x,        // Counter variables for the bresenham line tracer
            counter_y,
-           counter_z;
+           counter_z,
+           counter_a, // included the additional axis
+           counter_b; // 2nd additional axis
   #ifdef STEP_PULSE_DELAY
     uint8_t step_bits;  // Stores out_bits output to complete the step pulse delay
   #endif
 
   uint8_t execute_step;     // Flags step execution for each interrupt.
 #ifndef WIN32
-  uint8_t step_pulse_time;  // Step pulse reset time after step rise
+  uint16_t step_pulse_time;  // Step pulse reset time after step rise Paul, from 8 bits to 16 bits
 #else
   LONGLONG step_pulse_time;
 #endif
@@ -159,16 +179,19 @@ typedef struct {
 static stepper_t st;
 
 // Step segment ring buffer indices
-static volatile uint8_t segment_buffer_tail;
-static uint8_t segment_buffer_head;
-static uint8_t segment_next_head;
+//static volatile uint8_t segment_buffer_tail;
+//static uint8_t segment_buffer_head;
+//static uint8_t segment_next_head;
+static volatile uint16_t segment_buffer_tail;
+static uint16_t segment_buffer_head;
+static uint16_t segment_next_head;
 
 // Step and direction port invert masks.
 static PORTPINDEF step_port_invert_mask;
 static PORTPINDEF dir_port_invert_mask;
 
 // Used to avoid ISR nesting of the "Stepper Driver Interrupt". Should never occur though.
-static volatile uint8_t busy;
+static volatile uint8_t busy;  // Paul manual semaphore in case we don't trust the real one :)
 
 // Pointers for the step segment being prepped from the planner buffer. Accessed only by the
 // main program. Pointers may be planning segments or planner blocks ahead of what being executed.
@@ -204,7 +227,7 @@ typedef struct {
 
   #ifdef VARIABLE_SPINDLE
     float inv_rate;    // Used by PWM laser mode to speed up segment calculations.
-    uint8_t current_spindle_pwm;
+    uint16_t current_spindle_pwm;//uint8_t current_spindle_pwm;
   #endif
 } st_prep_t;
 static st_prep_t prep;
@@ -279,7 +302,8 @@ void st_wake_up()
 #elif defined (WIN32)
   st.step_pulse_time = (settings.pulse_microseconds)*TICKS_PER_MICROSECOND;
 #elif defined(STM32F103C8)
-  st.step_pulse_time = (settings.pulse_microseconds)*TICKS_PER_MICROSECOND;
+  st.step_pulse_time = ~(((settings.pulse_microseconds-4)*57));
+
 #endif
   #endif
 
@@ -418,8 +442,11 @@ void Timer1Proc()
   // Set the direction pins a couple of nanoseconds before we step the steppers
   DIRECTION_PORT = (DIRECTION_PORT & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
 #endif
-#ifdef STM32F103C8
+#ifdef STM32F103C8;
+	//GPIO_WriteBit(ISR_PORT, ISR_BIT, Bit_SET); //start isr measure time
+  //LedBlink(); // Paul, enter the isr for oscilloscope
   GPIO_Write(DIRECTION_PORT, (GPIO_ReadOutputData(DIRECTION_PORT) & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK));
+
   TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
 #endif
 
@@ -432,6 +459,7 @@ void Timer1Proc()
 #endif
 #ifdef STM32F103C8
 	GPIO_Write(STEP_PORT, (GPIO_ReadOutputData(STEP_PORT) & ~STEP_MASK) | st.step_outbits);
+
 #endif
   #endif
 
@@ -445,10 +473,12 @@ void Timer1Proc()
   nTimer0Out = st.step_pulse_time;
 #endif
 #ifdef STM32F103C8
+//  LedBlink(); //start the isr for oscilloscope Paul
+//  GPIO_WriteBit(ISR_PORT, ISR_BIT, Bit_SET);
   NVIC_EnableIRQ(TIM3_IRQn);
 #endif
 
-  busy = true;
+  busy = true; // super over protective semaphore Paul commentary
 #ifdef AVRTARGET
   sei(); // Re-enable interrupts to allow Stepper Port Reset Interrupt to fire on-time.
          // NOTE: The remaining code in this ISR will finish before returning to main program.
@@ -494,7 +524,7 @@ void Timer1Proc()
         st.exec_block = &st_block_buffer[st.exec_block_index];
 
         // Initialize Bresenham line and distance counters
-        st.counter_x = st.counter_y = st.counter_z = (st.exec_block->step_event_count >> 1);
+        st.counter_x = st.counter_y = st.counter_z = st.counter_a = st.counter_b =  (st.exec_block->step_event_count >> 1);
       }
       st.dir_outbits = st.exec_block->direction_bits ^ dir_port_invert_mask;
 
@@ -503,6 +533,8 @@ void Timer1Proc()
         st.steps[X_AXIS] = st.exec_block->steps[X_AXIS] >> st.exec_segment->amass_level;
         st.steps[Y_AXIS] = st.exec_block->steps[Y_AXIS] >> st.exec_segment->amass_level;
         st.steps[Z_AXIS] = st.exec_block->steps[Z_AXIS] >> st.exec_segment->amass_level;
+        st.steps[A_AXIS] = st.exec_block->steps[A_AXIS] >> st.exec_segment->amass_level; //amass_level;//additional axis 6/08/2018 Paul
+        st.steps[B_AXIS] = st.exec_block->steps[B_AXIS] >> st.exec_segment->amass_level; //amass_level;//2nd additional axis
       #endif
 
       #ifdef VARIABLE_SPINDLE
@@ -563,6 +595,29 @@ void Timer1Proc()
     if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys_position[Z_AXIS]--; }
     else { sys_position[Z_AXIS]++; }
   }
+// additional axis counter 6/08/2018 Paul
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_a += st.steps[A_AXIS];
+  #else
+    st.counter_a += st.exec_block->steps[A_AXIS];
+  #endif
+  if (st.counter_a > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<A_STEP_BIT);
+    st.counter_a -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<A_DIRECTION_BIT)) { sys_position[A_AXIS]--; }
+    else { sys_position[A_AXIS]++; }
+  }
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_b += st.steps[B_AXIS];
+  #else
+    st.counter_b += st.exec_block->steps[B_AXIS];
+  #endif
+  if (st.counter_b > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<B_STEP_BIT);
+    st.counter_b -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<B_DIRECTION_BIT)) { sys_position[B_AXIS]--; }
+    else { sys_position[B_AXIS]++; }
+  }
 
   // During a homing cycle, lock out and prevent desired axes from moving.
   if (sys.state == STATE_HOMING) { st.step_outbits &= sys.homing_axis_lock; }
@@ -613,6 +668,7 @@ void Timer0Proc()
 #ifdef STM32F103C8
 	if ((TIM3->SR & 0x0001) != 0)                  // check interrupt source
 	{
+//		LedBlink();
 		TIM3->SR &= ~(1<<0);                          // clear UIF flag
 		TIM3->CNT = 0;
 		NVIC_DisableIRQ(TIM3_IRQn);
@@ -628,17 +684,17 @@ void Timer0Proc()
   nTimer0Out = 0;
 #endif
 }
-#ifdef STEP_PULSE_DELAY
-  // This interrupt is used only when STEP_PULSE_DELAY is enabled. Here, the step pulse is
-  // initiated after the STEP_PULSE_DELAY time period has elapsed. The ISR TIMER2_OVF interrupt
-  // will then trigger after the appropriate settings.pulse_microseconds, as in normal operation.
-  // The new timing between direction, step pulse, and step complete events are setup in the
-  // st_wake_up() routine.
-  ISR(TIMER0_COMPA_vect)
-  {
-    STEP_PORT = st.step_bits; // Begin step pulse.
-  }
-#endif
+//#ifdef STEP_PULSE_DELAY
+//  // This interrupt is used only when STEP_PULSE_DELAY is enabled. Here, the step pulse is
+//  // initiated after the STEP_PULSE_DELAY time period has elapsed. The ISR TIMER2_OVF interrupt
+//  // will then trigger after the appropriate settings.pulse_microseconds, as in normal operation.
+//  // The new timing between direction, step pulse, and step complete events are setup in the
+//  // st_wake_up() routine.
+//  ISR(TIMER0_COMPA_vect)
+//  {
+//    STEP_PORT = st.step_bits; // Begin step pulse.
+//  }
+//#endif
 
 
 // Generates the step and direction port invert masks used in the Stepper Interrupt Driver.
@@ -680,7 +736,9 @@ void st_reset()
 #endif
 #ifdef STM32F103C8
   GPIO_Write(STEP_PORT, (GPIO_ReadOutputData(STEP_PORT) & ~STEP_MASK) | (step_port_invert_mask & STEP_MASK));
+
   GPIO_Write(DIRECTION_PORT, (GPIO_ReadOutputData(DIRECTION_PORT) & ~DIRECTION_MASK) | (dir_port_invert_mask & DIRECTION_MASK));
+
 #endif
 }
 
@@ -730,23 +788,35 @@ void stepper_init()
 #ifdef STM32F103C8
 	GPIO_InitTypeDef GPIO_InitStructure;
 	RCC_APB2PeriphClockCmd(RCC_STEPPERS_DISABLE_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz; //GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+//	GPIO_InitStructure.GPIO_Pin = STEPPERS_DISABLE_MASK|ISR_BIT;// isr bit is for measuring isr time
 	GPIO_InitStructure.GPIO_Pin = STEPPERS_DISABLE_MASK;
 	GPIO_Init(STEPPERS_DISABLE_PORT, &GPIO_InitStructure);
 
 	RCC_APB2PeriphClockCmd(RCC_STEP_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Pin = STEP_MASK;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz; //GPIO_Speed_50MHz; Added by Paul
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP; // added by paul
+	// we initialise both dir and step ins since they share the same gpio port
+	GPIO_InitStructure.GPIO_Pin = STEP_MASK|DIRECTION_MASK; // both stepper pins and direction pins initialised
 	GPIO_Init(STEP_PORT, &GPIO_InitStructure);
 
-	RCC_APB2PeriphClockCmd(RCC_DIRECTION_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Pin = DIRECTION_MASK;
-	GPIO_Init(DIRECTION_PORT, &GPIO_InitStructure);
+	ResetStepperDisableBit();//Paul added, to ensure steppers are not powered on start up
 
+
+	//    GPIO_PinLockConfig(RCC_STEP_PORT,GPIO_Pin_0|GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3|GPIO_Pin_4);
+//	RCC_APB2PeriphClockCmd(RCC_DIRECTION_PORT, ENABLE);
+//	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz; //GPIO_Speed_50MHz;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+//	GPIO_InitStructure.GPIO_Pin = DIRECTION_MASK;
+//	GPIO_Init(DIRECTION_PORT, &GPIO_InitStructure);
+//    GPIO_PinLockConfig(DIRECTION_PORT,15);
+//    GPIO_PinLockConfig(DIRECTION_PORT,8);
+// here we define the timers for the steps ISR TIM2 and step duration ISR TIM3
 	RCC->APB1ENR |= RCC_APB1Periph_TIM2;
 	TIM_Configuration(TIM2, 1, 1, 1);
 	RCC->APB1ENR |= RCC_APB1Periph_TIM3;
-	TIM_Configuration(TIM3, 1, 1, 1);
+	TIM_Configuration(TIM3, 1, 1, 1); // Paul, to do fix the configuration of the step duration here
 	NVIC_DisableIRQ(TIM3_IRQn);
 	NVIC_DisableIRQ(TIM2_IRQn);
 #endif
@@ -793,7 +863,8 @@ void st_update_plan_block_parameters()
 
 
 // Increments the step segment buffer block data ring buffer.
-static uint8_t st_next_block_index(uint8_t block_index)
+//static uint8_t st_next_block_index(uint8_t block_index)
+static uint8_t st_next_block_index(uint8_t block_index) //6/08/2018 to deal with the additional indexes exceeding 255
 {
   block_index++;
   if ( block_index == (SEGMENT_BUFFER_SIZE-1) ) { return(0); }
@@ -911,7 +982,8 @@ void st_prep_buffer()
           pl_block->entry_speed_sqr = prep.exit_speed*prep.exit_speed;
           prep.recalculate_flag &= ~(PREP_FLAG_DECEL_OVERRIDE);
         } else {
-          prep.current_speed = sqrtf(pl_block->entry_speed_sqr);
+          //prep.current_speed = sqrtf(pl_block->entry_speed_sqr);
+          prep.current_speed = sqrt(pl_block->entry_speed_sqr); // Paul, not sure if this will improve precision
         }
 #ifdef VARIABLE_SPINDLE
         // Setup laser mode variables. PWM rate adjusted motions will always complete a motion with the
@@ -943,7 +1015,8 @@ void st_prep_buffer()
 				float decel_dist = pl_block->millimeters - inv_2_accel*pl_block->entry_speed_sqr;
 				if (decel_dist < 0.0f) {
 					// Deceleration through entire planner block. End of feed hold is not in this block.
-					prep.exit_speed = sqrtf(pl_block->entry_speed_sqr-2*pl_block->acceleration*pl_block->millimeters);
+					//prep.exit_speed = sqrtf(pl_block->entry_speed_sqr-2*pl_block->acceleration*pl_block->millimeters);
+					prep.exit_speed = sqrt(pl_block->entry_speed_sqr-2*pl_block->acceleration*pl_block->millimeters); //Paul
 				} else {
 					prep.mm_complete = decel_dist; // End of feed hold.
 					prep.exit_speed = 0.0f;
@@ -959,7 +1032,8 @@ void st_prep_buffer()
           prep.exit_speed = exit_speed_sqr = 0.0f; // Enforce stop at end of system motion.
         } else {
           exit_speed_sqr = plan_get_exec_block_exit_speed_sqr();
-          prep.exit_speed = sqrtf(exit_speed_sqr);
+          //prep.exit_speed = sqrtf(exit_speed_sqr);
+          prep.exit_speed = sqrt(exit_speed_sqr); //Paul
         }
 
         nominal_speed = plan_compute_profile_nominal_speed(pl_block);
@@ -975,7 +1049,8 @@ void st_prep_buffer()
             // prep.maximum_speed = prep.current_speed;
 
             // Compute override block exit speed since it doesn't match the planner exit speed.
-            prep.exit_speed = sqrtf(pl_block->entry_speed_sqr - 2*pl_block->acceleration*pl_block->millimeters);
+           // prep.exit_speed = sqrtf(pl_block->entry_speed_sqr - 2*pl_block->acceleration*pl_block->millimeters);
+            prep.exit_speed = sqrt(pl_block->entry_speed_sqr - 2*pl_block->acceleration*pl_block->millimeters);//Paul
             prep.recalculate_flag |= PREP_FLAG_DECEL_OVERRIDE; // Flag to load next block as deceleration override.
 
             // TODO: Determine correct handling of parameters in deceleration-only.
@@ -1004,7 +1079,8 @@ void st_prep_buffer()
 						} else { // Triangle type
 							prep.accelerate_until = intersect_distance;
 							prep.decelerate_after = intersect_distance;
-							prep.maximum_speed = sqrtf(2.0f*pl_block->acceleration*intersect_distance+exit_speed_sqr);
+							//prep.maximum_speed = sqrtf(2.0f*pl_block->acceleration*intersect_distance+exit_speed_sqr);
+							prep.maximum_speed = sqrt(2.0f*pl_block->acceleration*intersect_distance+exit_speed_sqr);//Paul
 						}
 					} else { // Deceleration-only type
             prep.ramp_type = RAMP_DECEL;
@@ -1139,7 +1215,9 @@ void st_prep_buffer()
           if (st_prep_block->is_pwm_rate_adjusted) { rpm *= (prep.current_speed * prep.inv_rate); }
           // If current_speed is zero, then may need to be rpm_min*(100/MAX_SPINDLE_SPEED_OVERRIDE)
           // but this would be instantaneous only and during a motion. May not matter at all.
-          prep.current_spindle_pwm = spindle_compute_pwm_value(rpm);
+
+          prep.current_spindle_pwm = spindle_compute_pwm_value(rpm); // Paul, this might need change
+
         }
         else {
           sys.spindle_speed = 0.0;
@@ -1204,8 +1282,10 @@ void st_prep_buffer()
         cycles >>= prep_segment->amass_level;
         prep_segment->n_step <<= prep_segment->amass_level;
       }
-      if (cycles < (1UL << 16)) { prep_segment->cycles_per_tick = cycles; } // < 65536 (4.1ms @ 16MHz)
-      else { prep_segment->cycles_per_tick = 0xffff; } // Just set the slowest speed possible.
+//      if (cycles < (1UL << 16)) { prep_segment->cycles_per_tick = cycles; } // < 65536 (4.1ms @ 16MHz)
+//      else { prep_segment->cycles_per_tick = 0xffff; } //  Just set the slowest speed possible.
+      if (cycles < (1UL << 16)) { prep_segment->cycles_per_tick = cycles; } // Paul if the number of cycles exceed a million then reduce the speed
+      else { prep_segment->cycles_per_tick = 0xffffffff; } //  Just set the slowest speed possible.
     #else
       // Compute step timing and timer prescalar for normal step generation.
       if (cycles < (1UL << 16)) { // < 65536  (4.1ms @ 16MHz)
@@ -1272,7 +1352,7 @@ float st_get_realtime_rate()
   return 0.0f;
 }
 #ifdef STM32F103C8
-void TIM_Configuration(TIM_TypeDef* TIMER, u16 Period, u16 Prescaler, u8 PP)
+void TIM_Configuration(TIM_TypeDef* TIMER, u16 Period, u16 Prescaler, u8 PP) // configures the interrupt timers
 {
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 	NVIC_InitTypeDef NVIC_InitStructure;

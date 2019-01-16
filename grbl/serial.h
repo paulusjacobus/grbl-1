@@ -34,9 +34,9 @@
   #endif
 #endif
 #else
-#define RX_BUFFER_SIZE 254
+#define RX_BUFFER_SIZE 254//254
 #ifndef WIN32
-#define TX_BUFFER_SIZE 128	// Do not try 256 it will not work for STM32.
+#define TX_BUFFER_SIZE 128 //128	// Do not try 256 it will not work for STM32.
 #else
 #define TX_BUFFER_SIZE 254
 #endif
@@ -60,7 +60,7 @@ uint8_t serial_read();
 void serial_reset_read_buffer();
 
 // Returns the number of bytes available in the RX serial buffer.
-uint8_t serial_get_rx_buffer_available();
+uint16_t serial_get_rx_buffer_available();
 
 // Returns the number of bytes used in the RX serial buffer.
 // NOTE: Deprecated. Not used unless classic status reports are enabled in config.h.

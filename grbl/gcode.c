@@ -86,7 +86,8 @@ uint8_t gc_execute_line(char *line)
   // Initialize command and value words and parser flags variables.
   uint16_t command_words = 0; // Tracks G and M command words. Also used for modal group violations.
   uint16_t value_words = 0; // Tracks value words.
-  uint8_t gc_parser_flags = GC_PARSER_NONE;
+//  uint8_t gc_parser_flags = GC_PARSER_NONE;
+  uint16_t gc_parser_flags = GC_PARSER_NONE; // Paul added a semaphor for M6 toggle
 
   // Determine if the line is a jogging motion or a normal g-code block.
   if (line[0] == '$') { // NOTE: `$J=` already parsed when passed to this function.
@@ -104,6 +105,12 @@ uint8_t gc_execute_line(char *line)
      a number, which can either be a 'G'/'M' command or sets/assigns a command value. Also,
      perform initial error-checks for command word modal group violations, for any repeated
      words, and for negative values set for the value words F, N, P, T, and S. */
+  /*
+   * Paul, this is the actual G code parser (just checks the validity of the codes, nothing else
+   *
+   *  Assumed: A block line is a set of G code statements in one line
+   *  For canned cycles we need a set of block lines that ends with a G80
+   */
 
   uint8_t word_bit; // Bit-value for assigning tracking variables
   uint8_t char_counter;
@@ -122,7 +129,7 @@ uint8_t gc_execute_line(char *line)
     char_counter++;
     if (!read_float(line, &char_counter, &value)) { FAIL(STATUS_BAD_NUMBER_FORMAT); } // [Expected word value]
 
-    // Convert values to smaller uint8 significand and mantissa values for parsing this word.
+    // Convert values to smaller uint8 significant and mantissa values for parsing this word.
     // NOTE: Mantissa is multiplied by 100 to catch non-integer command values. This is more
     // accurate than the NIST gcode requirement of x10 when used for commands, but not quite
     // accurate enough for value words that require integers to within 0.0001. This should be
@@ -131,7 +138,7 @@ uint8_t gc_execute_line(char *line)
     // Maybe update this later.
     int_value = truncf(value);
 	mantissa = (uint16_t)lroundf(100 * (value - int_value)); // Compute mantissa for Gxx.x commands.
-    // NOTE: Rounding must be used to catch small floating point errors.
+    // NOTE: Rounding must be used to catch small floating point errors. Paul, no need to increase accuracy here 32bits
 
     // Check if the g-code word is supported or errors due to modal group violations or has
     // been repeated in the g-code block. If ok, update the command or record its value.
@@ -155,33 +162,51 @@ uint8_t gc_execute_line(char *line)
             word_bit = MODAL_GROUP_G0;
             gc_block.non_modal_command = int_value;
             if ((int_value == 28) || (int_value == 30) || (int_value == 92)) {
-              if (!((mantissa == 0) || (mantissa == 10))) { FAIL(STATUS_GCODE_UNSUPPORTED_COMMAND); }
+              if (!((mantissa == 0) || (mantissa == 10))) { FAIL(STATUS_GCODE_UNSUPPORTED_COMMAND); } //G28. G28.1, G30, G30.1. G92 and G92.1
               gc_block.non_modal_command += mantissa;
               mantissa = 0; // Set to zero to indicate valid non-integer G command.
             }                
             break;
-          case 0: case 1: case 2: case 3: case 38:
-            // Check for G0/1/2/3/38 being called with G10/28/30/92 on same block.
+          case 0: case 1: case 2: case 3: case 33: case 38:
+            // Check for G0/1/2/3/38 being called with G10/28/30/33/92 on same block. Paul: G33.1 and G76 are on the same block? Assume not
             // * G43.1 is also an axis command but is not explicitly defined this way.
             if (axis_command) { FAIL(STATUS_GCODE_AXIS_COMMAND_CONFLICT); } // [Axis word/command conflict]
             axis_command = AXIS_COMMAND_MOTION_MODE;
             // No break. Continues to next line.
           case 80:
-            word_bit = MODAL_GROUP_G1;
+            word_bit = MODAL_GROUP_G1; // Assigns a modal group = motion to these G codes
             gc_block.modal.motion = int_value;
-            if (int_value == 38){
+            if (int_value == 38){ // Paul, G38.2, G38.3, G38.4 and G38.5 are supported here anything else is rejected
               if (!((mantissa == 20) || (mantissa == 30) || (mantissa == 40) || (mantissa == 50))) {
                 FAIL(STATUS_GCODE_UNSUPPORTED_COMMAND); // [Unsupported G38.x command]
               }
-              gc_block.modal.motion += (mantissa/10)+100;
+              gc_block.modal.motion += (mantissa/10)+100;  //Paul, G38.2 modal.motion= motion plus 20; G38 -> motion plus 0
+              // gc_block.modal.motion is used in gc_execut_line function!
               mantissa = 0; // Set to zero to indicate valid non-integer G command.
             }  
+            break;
+//          case 76: case 81: case 82: case 83: case 84:case 85:case 86:case 87:case 88:case 89: case 98: case 99:// Paul, Canned cycles e.g. drilling, boring, tapping, drill pecking
+//        	  //for lathes the G76 threading cycle is a must have along with the G33 and G33.1 spindle synchronized motion
+//        	  // Added G76, G81..89. Needs to have G98,99 as the return from canned cycles in this block
+//              /*
+//               * Author Paul: implements the G33 and G33.1 G code parser check
+//               */
+//            if (int_value == 33){ // Paul, G33, G33.1 are supported here anything else is rejected
+//              if (!((mantissa == 0) || (mantissa == 10))) {
+//                FAIL(STATUS_GCODE_UNSUPPORTED_COMMAND); // [Unsupported G33.x command]
+//              }
+//              gc_block.modal.motion += (mantissa/10)+100;  //Paul, G33.1 modal.motion=100
+//              mantissa = 0; // Set to zero to indicate valid non-integer G command.
+//              }
+//              /*
+//               * End
+//               */
             break;
           case 17: case 18: case 19:
             word_bit = MODAL_GROUP_G2;
             gc_block.modal.plane_select = int_value - 17;
             break;
-          case 90: case 91:
+          case 90: case 91:  // release canned modes
             if (mantissa == 0) {
               word_bit = MODAL_GROUP_G3;
               gc_block.modal.distance = int_value - 90;
@@ -249,7 +274,7 @@ uint8_t gc_execute_line(char *line)
             switch(int_value) {
               case 0: gc_block.modal.program_flow = PROGRAM_FLOW_PAUSED; break; // Program pause
               case 1: break; // Optional stop not supported. Ignore.
-              default: gc_block.modal.program_flow = int_value; // Program end and reset
+              default: gc_block.modal.program_flow = int_value; // {Paul M2} Program end and reset
             }
             break;
 					case 3: case 4: case 5:
@@ -260,6 +285,15 @@ uint8_t gc_execute_line(char *line)
               case 5: gc_block.modal.spindle = SPINDLE_DISABLE; break;
             }
             break;
+            /*
+             * Author Paul, added M6
+             */
+			case 6:
+			word_bit = MODAL_GROUP_M7;
+			switch(int_value) {
+			  case 6: gc_block.modal.tool_enable = TOOL_M6_ENABLE; gc_parser_flags |= GC_PARSER_M6_TOGGLE ;break;
+			}
+			break;
           #ifdef ENABLE_M7
             case 7: case 8: case 9:
           #else
@@ -271,7 +305,7 @@ uint8_t gc_execute_line(char *line)
                 case 7: gc_block.modal.coolant = COOLANT_MIST_ENABLE; break;
               #endif
               case 8: gc_block.modal.coolant = COOLANT_FLOOD_ENABLE; break;
-              case 9: gc_block.modal.coolant = COOLANT_DISABLE; break;
+              case 9: gc_block.modal.coolant = COOLANT_DISABLE;break;
             }
             break;
 					#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
@@ -297,7 +331,9 @@ uint8_t gc_execute_line(char *line)
            words (I,J,K,L,P,R) have multiple connotations and/or depend on the issued commands. */
         switch(letter){
           // case 'A': // Not supported
+          case 'A': word_bit = WORD_A; gc_block.values.xyz[A_AXIS] = value; axis_words |= (1<<A_AXIS); break;
           // case 'B': // Not supported
+          case 'B': word_bit = WORD_B; gc_block.values.xyz[B_AXIS] = value; axis_words |= (1<<B_AXIS); break;
           // case 'C': // Not supported
           // case 'D': // Not supported
           case 'F': word_bit = WORD_F; gc_block.values.f = value; break;
@@ -305,16 +341,17 @@ uint8_t gc_execute_line(char *line)
           case 'I': word_bit = WORD_I; gc_block.values.ijk[X_AXIS] = value; ijk_words |= (1<<X_AXIS); break;
           case 'J': word_bit = WORD_J; gc_block.values.ijk[Y_AXIS] = value; ijk_words |= (1<<Y_AXIS); break;
           case 'K': word_bit = WORD_K; gc_block.values.ijk[Z_AXIS] = value; ijk_words |= (1<<Z_AXIS); break;
-          case 'L': word_bit = WORD_L; gc_block.values.l = int_value; break;
+          case 'L': word_bit = WORD_L; gc_block.values.l = int_value; break; // Line word
           case 'N': word_bit = WORD_N; gc_block.values.n = truncf(value); break;
           case 'P': word_bit = WORD_P; gc_block.values.p = value; break;
           // NOTE: For certain commands, P value must be an integer, but none of these commands are supported.
-          // case 'Q': // Not supported
-          case 'R': word_bit = WORD_R; gc_block.values.r = value; break;
+          case 'Q': word_bit = WORD_R; gc_block.values.q = value; break;// Not supported
+          case 'R': word_bit = WORD_R; gc_block.values.r = value; break; // Retract word
           case 'S': word_bit = WORD_S; gc_block.values.s = value; break;
-		  case 'T': word_bit = WORD_T;
+		  case 'T': word_bit = WORD_T; // Tool word
 				if (value > MAX_TOOL_NUMBER) { FAIL(STATUS_GCODE_MAX_VALUE_EXCEEDED); }
 					gc_block.values.t = int_value;
+					gc_block.modal.tool_change = TOOL_T_ENABLE; // added by Paul for Tn function
 				break;
 		  case 'X': word_bit = WORD_X; gc_block.values.xyz[X_AXIS] = value; axis_words |= (1<<X_AXIS); break;
           case 'Y': word_bit = WORD_Y; gc_block.values.xyz[Y_AXIS] = value; axis_words |= (1<<Y_AXIS); break;
@@ -697,7 +734,7 @@ uint8_t gc_execute_line(char *line)
             /*  We need to calculate the center of the circle that has the designated radius and passes
                 through both the current position and the target position. This method calculates the following
                 set of equations where [x,y] is the vector from current to target position, d == magnitude of
-                that vector, h == hypotenuse of the triangle formed by the radius of the circle, the distance to
+                that vector, h == hypotenusa of the triangle formed by the radius of the circle, the distance to
                 the center of the travel vector. A vector perpendicular to the travel vector [-y,x] is scaled to the
                 length of h [-y/d*h, x/d*h] and added to the center of the travel vector [x/2,y/2] to form the new point
                 [i,j] at [x/2-y/d*h, y/2+x/d*h] which will be the center of our arc.
@@ -749,7 +786,8 @@ uint8_t gc_execute_line(char *line)
             if (h_x2_div_d < 0) { FAIL(STATUS_GCODE_ARC_RADIUS_ERROR); } // [Arc radius error]
 
             // Finish computing h_x2_div_d.
-            h_x2_div_d = -sqrtf(h_x2_div_d)/hypot_f(x,y); // == -(h * 2 / d)
+            //h_x2_div_d = -sqrtf(h_x2_div_d)/hypot_f(x,y); // == -(h * 2 / d)
+            h_x2_div_d = -sqrt(h_x2_div_d)/hypot_f(x,y); // Paul; 32bits precision used in functions, see (Nutsandbolts)
             // Invert the sign of h_x2_div_d if the circle is counter clockwise (see sketch below)
             if (gc_block.modal.motion == MOTION_MODE_CCW_ARC) { h_x2_div_d = -h_x2_div_d; }
 
@@ -786,7 +824,7 @@ uint8_t gc_execute_line(char *line)
 
             // Convert IJK values to proper units.
             if (gc_block.modal.units == UNITS_MODE_INCHES) {
-              for (idx=0; idx<N_AXIS; idx++) { // Axes indices are consistent, so loop may be used to save flash space.
+              for (idx=0; idx<N_AXIS; idx++) { // Axes indices are consistent, so loop may be used to save flash space. //for (idx=0; idx<N_AXIS-2; idx++) {Paul changed this axis
                 if (ijk_words & bit(idx)) { gc_block.values.ijk[idx] *= MM_PER_INCH; }
               }
             }
@@ -833,7 +871,7 @@ uint8_t gc_execute_line(char *line)
   } else {
       bit_false(value_words, (bit(WORD_N) | bit(WORD_F) | bit(WORD_S) | bit(WORD_T))); // Remove single-meaning value words.
   }
-  if (axis_command) { bit_false(value_words,(bit(WORD_X)|bit(WORD_Y)|bit(WORD_Z))); } // Remove axis words.
+  if (axis_command) { bit_false(value_words,(bit(WORD_X)|bit(WORD_Y)|bit(WORD_Z)|bit(WORD_A)|bit(WORD_B))); } // Remove axis words.
   if (value_words) { FAIL(STATUS_GCODE_UNUSED_WORDS); } // [Unused words]
 
   /* -------------------------------------------------------------------------------------
@@ -940,7 +978,7 @@ uint8_t gc_execute_line(char *line)
   // [5. Select tool ]: NOT SUPPORTED. Only tracks tool value.
   gc_state.tool = gc_block.values.t;
 
-  // [6. Change tool ]: NOT SUPPORTED
+  // [6. Change tool ]: NOT SUPPORTED. Paul, not sure what needs to be done here
 
   // [7. Spindle control ]:
   if (gc_state.modal.spindle != gc_block.modal.spindle) {
@@ -961,7 +999,55 @@ uint8_t gc_execute_line(char *line)
     else { gc_state.modal.coolant |= gc_block.modal.coolant; }
   }
   pl_data->condition |= gc_state.modal.coolant; // Set condition flag for planner use.
-
+/*
+ * Author Paul, based on the coolant control design pattern
+ *  Coolant design did check 4 states ---
+ *  State | G code |  Block  | Action
+ *  0     |  0     |    0    | Do nothing
+ *  1     |  0     |    1    | Do tool synch
+ *  2     |  1     |    0    | Set gcode parser  = 0
+ *  3     |  1     |    1    | Do nothing
+ *
+ *   Tool design does need a different outcome for state 3
+ *  G code |  Block  | Action
+ *   0     |    0    | Do nothing
+ *   0     |    1    | Do tool synch
+ *   1     |    0    | Set gcode parser  = 0
+ *   1     |    1    | Do tool synch since we want to toggle the M6/Tn outputs
+ *
+ */
+  // [8.1. Execute the M6 Tool valve control ** Paul added this**]:
+if (bit_istrue(gc_parser_flags, GC_PARSER_M6_TOGGLE)){ // Semaphore so only the M6 toggle command is going thru
+  if (gc_state.modal.tool_enable != gc_block.modal.tool_enable) {
+    // NOTE: tool M6-codes are modal. Only one command per line is allowed. But, multiple states
+    // can exist at the same time, while tool disable clears all states.
+    tool_m6_sync(gc_block.modal.tool_enable);
+    if (gc_block.modal.tool_enable == TOOL_M6_DISABLE) { gc_state.modal.tool_enable = TOOL_M6_DISABLE; }
+    else { gc_state.modal.tool_enable |= gc_block.modal.tool_enable; }
+  } else if ((gc_state.modal.tool_enable = gc_block.modal.tool_enable) & (gc_state.modal.tool_enable = TOOL_M6_ENABLE) ) {
+	  tool_m6_sync(gc_block.modal.tool_enable);
+	  gc_state.modal.tool_enable = TOOL_M6_ENABLE;
+	  gc_block.modal.tool_enable = TOOL_M6_DISABLE;
+  }
+  gc_parser_flags &= ~GC_PARSER_M6_TOGGLE; // reset the semaphore
+ // number &= ~(1UL << n);
+  pl_data->condition |= gc_state.modal.tool_enable; // Set condition flag for planner use.
+}
+  // [8.2. Tn Tool change control ** Paul added this**]:
+  if (gc_state.modal.tool_change != gc_block.modal.tool_change) {
+    // NOTE: tool M6-codes are modal. Only one command per line is allowed. But, multiple states
+    // can exist at the same time, while tool disable clears all states.
+    tool_t_sync(gc_block.modal.tool_change); // spindle_sync(gc_block.modal.spindle, pl_data->spindle_speed);
+    if (gc_block.modal.tool_change == TOOL_T_DISABLE) { gc_state.modal.tool_change = TOOL_T_DISABLE; }
+    else { gc_state.modal.tool_change |= gc_block.modal.tool_change; }
+  } else if ((gc_state.modal.tool_change = gc_block.modal.tool_change) & (gc_state.modal.tool_change = TOOL_T_ENABLE) ) {
+	  tool_t_sync(gc_block.modal.tool_change);
+      gc_state.modal.tool_change = TOOL_T_DISABLE;
+  }
+  pl_data->condition |= gc_state.modal.tool_change; // Set condition flag for planner use.
+  /*
+   * end
+   */
 	// [9. Override control ]: NOT SUPPORTED. Always enabled. Except for a Grbl-only parking control.
 #ifdef ENABLE_PARKING_OVERRIDE_CONTROL
 	if (gc_state.modal.override != gc_block.modal.override) {
@@ -1010,7 +1096,10 @@ uint8_t gc_execute_line(char *line)
   // [17. Set distance mode ]:
   gc_state.modal.distance = gc_block.modal.distance;
 
-  // [18. Set retract mode ]: NOT SUPPORTED
+  // [18. Set retract mode ]: G98, G99 NOT SUPPORTED
+  // The height of the retract move at the end of each repeat (called clear Z in the descriptions below)
+  // is determined by the setting of the retract mode: either to the original Z position
+  // (if that is above the R position and the retract mode is G98, OLD_Z), or otherwise to the R position.
 
   // [19. Go to predefined position, Set G10, or Set axis offsets ]:
   switch(gc_block.non_modal_command) {
@@ -1028,7 +1117,7 @@ uint8_t gc_execute_line(char *line)
       pl_data->condition |= PL_COND_FLAG_RAPID_MOTION; // Set rapid motion condition flag.
       if (axis_command) { mc_line(gc_block.values.xyz, pl_data); }
       mc_line(gc_block.values.ijk, pl_data);
-      memcpy(gc_state.position, gc_block.values.ijk, N_AXIS*sizeof(float));
+      memcpy(gc_state.position, gc_block.values.ijk, N_AXIS*sizeof(float)); //N_AXIS should be 3 here Paul
       break;
     case NON_MODAL_SET_HOME_0:
       settings_write_coord_data(SETTING_INDEX_G28,gc_state.position);
@@ -1107,6 +1196,8 @@ uint8_t gc_execute_line(char *line)
       gc_state.modal.coord_select = 0; // G54
       gc_state.modal.spindle = SPINDLE_DISABLE;
       gc_state.modal.coolant = COOLANT_DISABLE;
+      gc_state.modal.tool_enable = TOOL_M6_DISABLE; // Added by Paul
+      //gc_state.modal.tool_change = TOOL_T_DISABLE; //Okay, Tn does not reset according LinuxCNC....
 			#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
 				#ifdef DEACTIVATE_PARKING_UPON_INIT
 					gc_state.modal.override = OVERRIDE_DISABLED;
@@ -1127,6 +1218,8 @@ uint8_t gc_execute_line(char *line)
         system_flag_wco_change(); // Set to refresh immediately just in case something altered.
         spindle_set_state(SPINDLE_DISABLE,0.0f);
         coolant_set_state(COOLANT_DISABLE);
+        tool_set_m6_state(TOOL_M6_DISABLE);
+        tool_set_t_state(TOOL_T_DISABLE);
       }
       report_feedback_message(MESSAGE_PROGRAM_END);
     }

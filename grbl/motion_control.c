@@ -26,7 +26,7 @@
 // unless invert_feed_rate is true. Then the feed_rate means that the motion should be completed in
 // (1 minute)/feed_rate time.
 // NOTE: This is the primary gateway to the grbl planner. All line motions, including arc line
-// segments, must pass through this routine before being passed to the planner. The seperation of
+// segments, must pass through this routine before being passed to the planner. The separation of
 // mc_line and plan_buffer_line is done primarily to place non-planner-type functions from being
 // in the planner and to let backlash compensation or canned cycle integration simple and direct.
 void mc_line(float *target, plan_line_data_t *pl_data)
@@ -79,7 +79,7 @@ void mc_line(float *target, plan_line_data_t *pl_data)
 
 // Execute an arc in offset mode format. position == current xyz, target == target xyz,
 // offset == offset from current xyz, axis_X defines circle plane in tool space, axis_linear is
-// the direction of helical travel, radius == circle radius, isclockwise boolean. Used
+// the direction of helical travel, radius == circle radius, is clockwise boolean. Used
 // for vector transformation direction.
 // The arc is approximated by generating a huge number of tiny, linear segments. The chordal tolerance
 // of each segment is configured in settings.arc_tolerance, which is defined to be the maximum normal
@@ -95,7 +95,8 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
   float rt_axis1 = target[axis_1] - center_axis1;
 
   // CCW angle between position and target from circle center. Only one atan2() trig computation required.
-  float angular_travel = atan2f(r_axis0*rt_axis1-r_axis1*rt_axis0, r_axis0*rt_axis0+r_axis1*rt_axis1);
+  //float angular_travel = atan2f(r_axis0*rt_axis1-r_axis1*rt_axis0, r_axis0*rt_axis0+r_axis1*rt_axis1);
+  float angular_travel = atan2(r_axis0*rt_axis1-r_axis1*rt_axis0, r_axis0*rt_axis0+r_axis1*rt_axis1);//Paul
   if (is_clockwise_arc) { // Correct atan2 output per direction
     if (angular_travel >= -ARC_ANGULAR_TRAVEL_EPSILON) { angular_travel -= 2*M_PI; }
   } else {
@@ -107,7 +108,8 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
   // is desired, i.e. least-squares, midpoint on arc, just change the mm_per_arc_segment calculation.
   // For the intended uses of Grbl, this value shouldn't exceed 2000 for the strictest of cases.
   uint16_t segments = (uint16_t)floorf(fabsf(0.5f*angular_travel*radius) /
-                          sqrtf(settings.arc_tolerance*(2*radius - settings.arc_tolerance)) );
+                          //sqrtf(settings.arc_tolerance*(2*radius - settings.arc_tolerance)) );
+                          sqrt(settings.arc_tolerance*(2*radius - settings.arc_tolerance)) );
 
   if (segments) {
     // Multiply inverse feed_rate to compensate for the fact that this movement is approximated
@@ -168,8 +170,10 @@ void mc_arc(float *target, plan_line_data_t *pl_data, float *position, float *of
       } else {
         // Arc correction to radius vector. Computed only every N_ARC_CORRECTION increments. ~375 usec
         // Compute exact location by applying transformation matrix from initial radius vector(=-offset).
-        cos_Ti = cosf(i*theta_per_segment);
-        sin_Ti = sinf(i*theta_per_segment);
+        //cos_Ti = cosf(i*theta_per_segment);
+       // sin_Ti = sinf(i*theta_per_segment);
+        cos_Ti = cos(i*theta_per_segment);//Paul, improved precision
+        sin_Ti = sin(i*theta_per_segment);
         r_axis0 = -offset[axis_0]*cos_Ti + offset[axis_1]*sin_Ti;
         r_axis1 = -offset[axis_0]*sin_Ti - offset[axis_1]*cos_Ti;
         count = 0;
@@ -248,11 +252,14 @@ void mc_homing_cycle(uint8_t cycle_mask)
 
   // If hard limits feature enabled, re-enable hard limits pin change register after homing cycle.
 #ifdef STM32F103C8
-	EXTI_ClearITPendingBit((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT));
+	EXTI_ClearITPendingBit((1 << X_LIMIT_BIT) | (1 << Y_LIMIT_BIT) | (1 << Z_LIMIT_BIT)|(1 << A_LIMIT_BIT)|(1 << B_LIMIT_BIT)); // Paul 16/8/2018
 	NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
 	NVIC_EnableIRQ(EXTI15_10_IRQn);
 #else
-	limits_init();
+	//limits_init();
+	//Author Paul
+	system_init(); //14/01/19 Paul, system_init() replaces now limits_init() because of STM32 exti_line not being atomic
+	// End of change
 #endif
 }
 

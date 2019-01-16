@@ -37,16 +37,20 @@ void probe_init()
   #endif
 #endif
 #ifdef STM32F103C8
-	GPIO_InitTypeDef GPIO_InitStructure;
-	RCC_APB2PeriphClockCmd(RCC_PROBE_PORT, ENABLE);
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+//	GPIO_InitTypeDef GPIO_InitStructure;
+//	RCC_APB2PeriphClockCmd(RCC_PROBE_PORT, ENABLE);
+//	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
 #ifdef DISABLE_PROBE_PIN_PULL_UP
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 #else
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
 #endif
-	GPIO_InitStructure.GPIO_Pin = PROBE_MASK;
-	GPIO_Init(PROBE_PORT, &GPIO_InitStructure);
+//	GPIO_InitStructure.GPIO_Pin = PROBE_MASK;
+//	GPIO_Init(PROBE_PORT, &GPIO_InitStructure);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+	//debug
+	  //GPIO_PinLockConfig(PROBE_PORT,PROBE_MASK);
+	  //
 #endif
   probe_configure_invert_mask(false); // Initialize invert mask.
 }
@@ -64,6 +68,7 @@ void probe_configure_invert_mask(uint8_t is_probe_away)
 
 
 // Returns the probe pin state. Triggered = true. Called by gcode parser and probe state monitor.
+// Use G38.2 Z-5 F1 to engage the probe , Paul
 uint8_t probe_get_state() 
 { 
 #ifdef AVRTARGET

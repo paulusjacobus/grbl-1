@@ -44,7 +44,8 @@ static planner_t pl;
 uint8_t plan_next_block_index(uint8_t block_index)
 {
   block_index++;
-  if (block_index == BLOCK_BUFFER_SIZE) { block_index = 0; }
+  if (block_index >= BLOCK_BUFFER_SIZE-3){report_realtime_status();}
+  if (block_index == BLOCK_BUFFER_SIZE) { block_index = 0;}
   return(block_index);
 }
 
@@ -367,7 +368,8 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
         delta_mm = (target_steps[idx] - position_steps[idx])/settings.steps_per_mm[idx];
       }
     #else
-      target_steps[idx] = lroundf(target[idx]*settings.steps_per_mm[idx]);
+      //target_steps[idx] = lroundf(target[idx]*settings.steps_per_mm[idx]); Paul; replace roundf 16 bits with round 32 bits
+      target_steps[idx] = lround(target[idx]*settings.steps_per_mm[idx]);
       block->steps[idx] = abs(target_steps[idx]-position_steps[idx]);
       block->step_event_count = max(block->step_event_count, block->steps[idx]);
       delta_mm = (target_steps[idx] - position_steps[idx])/settings.steps_per_mm[idx];
@@ -445,7 +447,9 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
       } else {
         convert_delta_vector_to_unit_vector(junction_unit_vec);
         float junction_acceleration = limit_value_by_axis_maximum(settings.acceleration, junction_unit_vec);
-        float sin_theta_d2 = sqrtf(0.5f*(1.0f-junction_cos_theta)); // Trig half angle identity. Always positive.
+        float sin_theta_d2 = sqrt(0.5f*(1.0f-junction_cos_theta)); // Trig half angle identity. Always positive.
+        //double sin_theta_d4 = sqrt(0.5f*(1.0f-junction_cos_theta)); // Paul; Here we try to improve the precision. Just replace sqrtf with sqrt
+        //float sin_theta_d2 = (float)sin_theta_d4;
         block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
                        (junction_acceleration * settings.junction_deviation * sin_theta_d2)/(1.0f-sin_theta_d2) );
       }
@@ -477,7 +481,7 @@ uint8_t plan_buffer_line(float *target, plan_line_data_t *pl_data)
 void plan_sync_position()
 {
   // TODO: For motor configurations not in the same coordinate frame as the machine position,
-  // this function needs to be updated to accomodate the difference.
+  // this function needs to be updated to accommodate the difference.
   uint8_t idx;
   for (idx=0; idx<N_AXIS; idx++) {
     #ifdef COREXY

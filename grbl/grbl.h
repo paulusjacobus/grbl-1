@@ -23,11 +23,15 @@
 
 // Grbl versioning system
 #define GRBL_VERSION "1.1f"
-#define GRBL_VERSION_BUILD "20170801"
+#define GRBL_VERSION_BUILD "20190114"
+#define GRBL_SERIAL "0x00007" // Paul, added OEM info
+#define GRBL_SERIAL_BUILD "Date:20190114" //
+#define GRBL_OEM "Awesome.tech" //
+#define GRBL_PRODUCT "SuperGerbil" //
 
-#if !defined(STM32F103C8) && !defined(WIN32)
-#define AVRTARGET
-#endif
+//#if !defined(STM32F103C8) && !defined(WIN32)
+//#define AVRTARGET
+//#endif
 
 // Define standard libraries used by Grbl.
 #ifdef AVRTARGET
@@ -66,17 +70,33 @@ typedef int bool;
 #endif
 #ifdef STM32F103C8
 #include "stm32f10x.h"
+#include "stm32f10x_conf.h"
+#include "system_stm32f10x.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_exti.h"
 #include "stm32f10x_tim.h"
 #include "misc.h"
+#include "stm32f10x_rcc.h" //place holder to add sd card libs
+#include "stm32f10x_rtc.h"
+/*
+#include "ff.h"
+#include "diskio.h"
+#include "ffconf.h"
+#include "integer.h"
+#include "xprintf.h" //end of the SD card libs
+#include "mmcb.h"
+#include "ST7735.h"
+#include "integer.h"
+*/
+
 #define PSTR(x) x
 #define pgm_read_byte_near(x) *(x)
 void _delay_ms(uint32_t x);
 void _delay_us(uint32_t x);
 #define false 0
 #define true 1
-#define PORTPINDEF uint16_t
+//#define PORTPINDEF uint16_t
+#define PORTPINDEF uint32_t //Paul
 typedef int bool;
 //#define NOEEPROMSUPPORT
 #define printPgmString printString
@@ -100,6 +120,13 @@ typedef int bool;
 #include "motion_control.h"
 #include "planner.h"
 #include "print.h"
+/*
+ * Author Paul: added tool changer
+ */
+#include "tool.h"
+/*
+ * end
+ */
 #include "probe.h"
 #include "protocol.h"
 #include "report.h"
@@ -107,6 +134,7 @@ typedef int bool;
 #include "spindle_control.h"
 #include "stepper.h"
 #include "jog.h"
+#include "stm32_dsp.h"
 
 // ---------------------------------------------------------------------------------------
 // COMPILE-TIME ERROR CHECKING OF DEFINE VALUES:
@@ -119,7 +147,8 @@ typedef int bool;
   #error "USE_SPINDLE_DIR_AS_ENABLE_PIN may only be used with VARIABLE_SPINDLE enabled"
 #endif
 
-#if defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && !defined(CPU_MAP_ATMEGA328P)
+//#if defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && !defined(CPU_MAP_ATMEGA328P)
+#if defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && !defined(CPU_MAP_STM32F103)
   #error "USE_SPINDLE_DIR_AS_ENABLE_PIN may only be used with a 328p processor"
 #endif
 

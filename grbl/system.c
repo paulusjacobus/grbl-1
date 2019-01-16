@@ -34,24 +34,58 @@ void system_init()
   PCICR |= (1 << CONTROL_INT);   // Enable Pin Change Interrupt
 #endif
 #ifdef STM32F103C8
+  /*
+   * Author Paul
+   * +++   Warning, warning Robisson     +++
+   * +++   Undocumentated STM32 feature  +++
+   * +++   ahead!                        +++
+   *
+   * All AFIO GPIO pins are initialised together in one action to prevent
+   * IO issues (either the controls don't work or the limit pins).
+   * Apparently you cannot initialise various pins on one port in separate
+   * routines like Limits and system (controls) like Arduino does
+   *
+   */
   GPIO_InitTypeDef GPIO_InitStructure;
   RCC_APB2PeriphClockCmd(RCC_CONTROL_PORT | RCC_APB2Periph_AFIO, ENABLE);
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
 #ifdef DISABLE_CONTROL_PIN_PULL_UP
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 #else
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
 #endif
-  GPIO_InitStructure.GPIO_Pin = CONTROL_MASK;
+  // debug ports
+  /*
+   * Author Paul
+   *
+   * All AFIO GPIO pins are initialised together to prevent none working
+   * interrupts on the controls or limit switches or probe or DC motor fault feedback
+   */
+  GPIO_InitStructure.GPIO_Pin = CONTROL_MASK|LIMIT_MASK|PROBE_MASK; // Paul, Limit Mask includes the Controls and CONTROL_FAULT_BIT pin!
   GPIO_Init(CONTROL_PORT, &GPIO_InitStructure);
+  //GPIO_PinLockConfig(CONTROL_PORT,CONTROL_MASK|LIMIT_MASK|PROBE_MASK );
 
-  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_RESET_BIT);
-  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_FEED_HOLD_BIT);
-  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_CYCLE_START_BIT);
-  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_SAFETY_DOOR_BIT);
+  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_RESET_BIT); //abort
+  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_FEED_HOLD_BIT); //pause
+  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_CYCLE_START_BIT); //resume
+  GPIO_EXTILineConfig(GPIO_CONTROL_PORT, CONTROL_SAFETY_DOOR_BIT); //safety door
 
+  // Added Limits init
   EXTI_InitTypeDef EXTI_InitStructure;
-  EXTI_InitStructure.EXTI_Line = CONTROL_MASK;    //
+  if (bit_istrue(settings.flags, BITFLAG_HARD_LIMIT_ENABLE))
+	{
+      EXTI_InitStructure.EXTI_Line = CONTROL_MASK|LIMIT_MASK;    //
+	  GPIO_EXTILineConfig(GPIO_LIMIT_PORT, X_LIMIT_BIT);
+	  GPIO_EXTILineConfig(GPIO_LIMIT_PORT, Y_LIMIT_BIT);
+	  GPIO_EXTILineConfig(GPIO_LIMIT_PORT, Z_LIMIT_BIT);
+	  GPIO_EXTILineConfig(GPIO_LIMIT_PORT, A_LIMIT_BIT); //
+	  GPIO_EXTILineConfig(GPIO_LIMIT_PORT, B_LIMIT_BIT); //
+	}
+  // end of limits init code
+  else {
+	  EXTI_InitStructure.EXTI_Line = CONTROL_MASK;    // Original code without limits init
+  }
+
   EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt; //Interrupt mode, optional values for the interrupt EXTI_Mode_Interrupt and event EXTI_Mode_Event.
   EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
   EXTI_InitStructure.EXTI_LineCmd = ENABLE;
@@ -63,6 +97,21 @@ void system_init()
   NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x02; //Sub priority 2
   NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //Enable external interrupt channel
   NVIC_Init(&NVIC_InitStructure);
+
+  //Added limits init code
+  if (bit_istrue(settings.flags, BITFLAG_HARD_LIMIT_ENABLE)){
+    NVIC_InitTypeDef NVIC_InitStructure;
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn; //Enable keypad external interrupt channel and DC motor fault feed back
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02; //Priority 2,
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03; //was Sub priority 2, now 3 since controls are 2
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //Enable external interrupt channel
+    NVIC_Init(&NVIC_InitStructure);
+  }
+  else {
+	limits_disable();
+  }
+  // end of limits init code
+
 #endif
 }
 
@@ -70,9 +119,9 @@ void system_init()
 // Returns control pin state as a uint8 bitfield. Each bit indicates the input pin state, where
 // triggered is 1 and not triggered is 0. Invert mask is applied. Bitfield organization is
 // defined by the CONTROL_PIN_INDEX in the header file.
-uint8_t system_control_get_state()
+uint8_t system_control_get_state() //uint8_t system_control_get_state()
 {
-  uint8_t control_state = 0;
+  uint16_t control_state = 0;
 #ifdef AVRTARGET
   uint8_t pin = (CONTROL_PIN & CONTROL_MASK);
 #endif
@@ -81,6 +130,7 @@ uint8_t system_control_get_state()
 #endif
 #ifdef STM32F103C8
   uint16_t pin= GPIO_ReadInputData(CONTROL_PIN_PORT);
+
 #endif
   #ifdef INVERT_CONTROL_PIN_MASK
     pin ^= INVERT_CONTROL_PIN_MASK;
@@ -124,17 +174,23 @@ ISR(CONTROL_INT_vect)
 #if defined (STM32F103C8)
 void EXTI9_5_IRQHandler(void)
 {
-    EXTI_ClearITPendingBit((1 << CONTROL_RESET_BIT) | (1 << CONTROL_FEED_HOLD_BIT) | (1 << CONTROL_CYCLE_START_BIT) | (1 << CONTROL_SAFETY_DOOR_BIT));
-	uint8_t pin = system_control_get_state();
+  EXTI_ClearITPendingBit((1 << CONTROL_RESET_BIT) | (1 << CONTROL_FEED_HOLD_BIT) | (1 << CONTROL_CYCLE_START_BIT) | (1 << CONTROL_SAFETY_DOOR_BIT));
+
+    uint16_t pin = system_control_get_state();
 	if (pin) 
 	{ 
-		if (bit_istrue(pin,CONTROL_PIN_INDEX_RESET)) 
+
+		if (bit_istrue(pin,CONTROL_PIN_INDEX_RESET))
 		{
 			mc_reset();
 		}
 		else if (bit_istrue(pin, CONTROL_PIN_INDEX_CYCLE_START))
 		{
 			bit_true(sys_rt_exec_state, EXEC_CYCLE_START);
+		}
+		else if (bit_istrue(pin, CONTROL_PIN_INDEX_FEED_HOLD))
+		{
+			bit_true(sys_rt_exec_state, EXEC_FEED_HOLD);
 		}
 #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
 		else if (bit_istrue(pin, CONTROL_PIN_INDEX_FEED_HOLD))
@@ -147,6 +203,7 @@ void EXTI9_5_IRQHandler(void)
 			bit_true(sys_rt_exec_state, EXEC_SAFETY_DOOR);
 		}
 #endif
+
 		NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
 }
 }
@@ -193,6 +250,8 @@ uint8_t system_execute_line(char *line)
 {
   uint8_t char_counter = 1;
   uint8_t helper_var = 0; // Helper variable
+  float rc;
+
   float parameter, value;
   switch( line[char_counter] ) {
     case 0 : report_grbl_help(); break;
@@ -210,8 +269,11 @@ uint8_t system_execute_line(char *line)
           else { report_grbl_settings(); }
           break;
         case 'G' : // Prints gcode parser state
-          // TODO: Move this to realtime commands for GUIs to request this data during suspend-state.
-          report_gcode_modes();
+          // TODO: Move this to real time commands for GUIs to request this data during suspend-state.
+        	//Paul, made changes here. Gcode modes Message is popping up all times
+          if (sys.state != STATE_IDLE){ //Paul,13/01/19 moved this out of the idle state since it's annoying
+            report_gcode_modes(); //PAul, might have to add a $ setting for this feature
+          }
           break;
         case 'C' : // Set check g-code mode [IDLE/CHECK]
           // Perform reset when toggling off. Check g-code mode should only work if Grbl
@@ -358,7 +420,7 @@ void system_flag_wco_change()
 // Returns machine position of axis 'idx'. Must be sent a 'step' array.
 // NOTE: If motor steps and machine position are not in the same coordinate frame, this function
 //   serves as a central place to compute the transformation.
-float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx)
+float system_convert_axis_steps_to_mpos(int32_t *steps, uint16_t idx) //Paul float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx)
 {
   float pos;
   #ifdef COREXY
@@ -378,7 +440,7 @@ float system_convert_axis_steps_to_mpos(int32_t *steps, uint8_t idx)
 
 void system_convert_array_steps_to_mpos(float *position, int32_t *steps)
 {
-  uint8_t idx;
+  uint16_t idx; //uint8_t Paul
   for (idx=0; idx<N_AXIS; idx++) {
     position[idx] = system_convert_axis_steps_to_mpos(steps, idx);
   }
@@ -400,9 +462,9 @@ void system_convert_array_steps_to_mpos(float *position, int32_t *steps)
 
 
 // Checks and reports if target array exceeds machine travel limits.
-uint8_t system_check_travel_limits(float *target)
+uint16_t system_check_travel_limits(float *target) //Paul, uint8_t system_check_travel_limits(float *target)
 {
-  uint8_t idx;
+  uint16_t idx; //Paul, uint8_6
   for (idx=0; idx<N_AXIS; idx++) {
     #ifdef HOMING_FORCE_SET_ORIGIN
       // When homing forced set origin is enabled, soft limits checks need to account for directionality.
@@ -520,7 +582,7 @@ void system_set_exec_motion_override_flag(uint8_t mask) {
 #endif
 }
 
-void system_set_exec_accessory_override_flag(uint8_t mask) {
+void system_set_exec_accessory_override_flag(uint8_t mask) { // accessory mask must be 16bits to allow for additional accessories like DC fault
 #ifdef AVRTARGET
 	uint8_t sreg = SREG;
   cli();

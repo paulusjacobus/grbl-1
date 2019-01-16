@@ -71,6 +71,11 @@ void settings_restore(uint8_t restore_flag) {
     settings.stepper_idle_lock_time = DEFAULT_STEPPER_IDLE_LOCK_TIME;
     settings.step_invert_mask = DEFAULT_STEPPING_INVERT_MASK;
     settings.dir_invert_mask = DEFAULT_DIRECTION_INVERT_MASK;
+
+    settings.m6_ff = DEFAULT_FF; // added parm for tool changer
+    settings.tool_delay = DEFAULT_DELAY; // added parm for tool changer
+    settings.m6_delay = DEFAULT_M6_DELAY; // added parm for tool valve
+
     settings.status_report_mask = DEFAULT_STATUS_REPORT_MASK;
     settings.junction_deviation = DEFAULT_JUNCTION_DEVIATION;
     settings.arc_tolerance = DEFAULT_ARC_TOLERANCE;
@@ -84,7 +89,7 @@ void settings_restore(uint8_t restore_flag) {
     settings.homing_debounce_delay = DEFAULT_HOMING_DEBOUNCE_DELAY;
     settings.homing_pulloff = DEFAULT_HOMING_PULLOFF;
     settings.pwm_mode = DEFAULT_MODE; // added parm for laser mode
-	  
+    settings.soft_start = DEFAULT_SOFT_START;
     settings.flags = 0;
     if (DEFAULT_REPORT_INCHES) { settings.flags |= BITFLAG_REPORT_INCHES; }
     if (DEFAULT_LASER_MODE) { settings.flags |= BITFLAG_LASER_MODE; }
@@ -98,16 +103,41 @@ void settings_restore(uint8_t restore_flag) {
     settings.steps_per_mm[X_AXIS] = DEFAULT_X_STEPS_PER_MM;
     settings.steps_per_mm[Y_AXIS] = DEFAULT_Y_STEPS_PER_MM;
     settings.steps_per_mm[Z_AXIS] = DEFAULT_Z_STEPS_PER_MM;
+    settings.steps_per_mm[A_AXIS] = DEFAULT_A_STEPS_PER_MM;
+    settings.steps_per_mm[B_AXIS] = DEFAULT_B_STEPS_PER_MM;
     settings.max_rate[X_AXIS] = DEFAULT_X_MAX_RATE;
     settings.max_rate[Y_AXIS] = DEFAULT_Y_MAX_RATE;
     settings.max_rate[Z_AXIS] = DEFAULT_Z_MAX_RATE;
+    settings.max_rate[A_AXIS] = DEFAULT_A_MAX_RATE;
+    settings.max_rate[B_AXIS] = DEFAULT_B_MAX_RATE;
     settings.acceleration[X_AXIS] = DEFAULT_X_ACCELERATION;
     settings.acceleration[Y_AXIS] = DEFAULT_Y_ACCELERATION;
     settings.acceleration[Z_AXIS] = DEFAULT_Z_ACCELERATION;
+    settings.acceleration[A_AXIS] = DEFAULT_A_ACCELERATION;
+    settings.acceleration[B_AXIS] = DEFAULT_B_ACCELERATION;
     settings.max_travel[X_AXIS] = (-DEFAULT_X_MAX_TRAVEL);
     settings.max_travel[Y_AXIS] = (-DEFAULT_Y_MAX_TRAVEL);
     settings.max_travel[Z_AXIS] = (-DEFAULT_Z_MAX_TRAVEL);
-
+    settings.max_travel[A_AXIS] = (-DEFAULT_A_MAX_TRAVEL);
+    settings.max_travel[B_AXIS] = (-DEFAULT_B_MAX_TRAVEL);
+    /*
+     *  Linear soft start curve for PWM DC Motor spindle
+     */
+    settings.n_pieces = DEFAULT_N_PIECES;
+    settings.rpm_max_s = DEFAULT_RPM_MAX;
+    settings.rpm_min_s = DEFAULT_RPM_MIN;
+    settings.rpm_point = DEFAULT_RPM_POINT12 ;
+    settings.rpm_point23 = DEFAULT_RPM_POINT23 ;
+    settings.rpm_point34 = DEFAULT_RPM_POINT34 ;
+    settings.rpm_line_a1 = DEFAULT_RPM_LINE_A1 ;
+    settings.rpm_line_b1 = DEFAULT_RPM_LINE_B1 ;
+    settings.rpm_line_a2 = DEFAULT_RPM_LINE_A2 ;
+    settings.rpm_line_b2 = DEFAULT_RPM_LINE_B2 ;
+    settings.rpm_line_a3 = DEFAULT_RPM_LINE_A3 ;
+    settings.rpm_line_b3 = DEFAULT_RPM_LINE_B3 ;
+    settings.rpm_line_a4 = DEFAULT_RPM_LINE_A4 ;
+    settings.rpm_line_b4 = DEFAULT_RPM_LINE_B4 ;
+    //
     write_global_settings();
   }
 
@@ -172,6 +202,8 @@ uint8_t settings_read_coord_data(uint8_t coord_select, float *coord_data)
 		coord_data[X_AXIS] = 0.0f;
 		coord_data[Y_AXIS] = 0.0f;
 		coord_data[Z_AXIS] = 0.0f;
+		coord_data[A_AXIS] = 0.0f;
+		coord_data[B_AXIS] = 0.0f;
 		settings_write_coord_data(coord_select,coord_data);
     return(false);
   }
@@ -259,6 +291,9 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
         else { settings.flags &= ~BITFLAG_INVERT_PROBE_PIN; }
         probe_configure_invert_mask(false);
         break;
+      case 7: settings.m6_ff = int_value;break;// Paul new tool changer toggle time
+      case 8: settings.tool_delay = value;break;// Paul new tool changer toggle time
+      case 9: settings.m6_delay = value; break;
       case 10: settings.status_report_mask = int_value; break;
       case 11: settings.junction_deviation = value; break;
       case 12: settings.arc_tolerance = value; break;
@@ -267,6 +302,7 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
         else { settings.flags &= ~BITFLAG_REPORT_INCHES; }
         system_flag_wco_change(); // Make sure WCO is immediately updated.
         break;
+      case 19: settings.soft_start = value; break;
       case 20:
         if (int_value) {
           if (bit_isfalse(settings.flags, BITFLAG_HOMING_ENABLE)) { return(STATUS_SOFT_LIMIT_ERROR); }
@@ -276,7 +312,10 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
       case 21:
         if (int_value) { settings.flags |= BITFLAG_HARD_LIMIT_ENABLE; }
         else { settings.flags &= ~BITFLAG_HARD_LIMIT_ENABLE; }
-        limits_init(); // Re-init to immediately change. NOTE: Nice to have but could be problematic later.
+        //limits_init(); // Re-init to immediately change. NOTE: Nice to have but could be problematic later.
+        // Author Paul
+        system_init(); //14/01/19 Paul, system_init() replaces now limits_init() because of STM32 exti_line not being atomic
+        // end of change
         break;
       case 22:
         if (int_value) { settings.flags |= BITFLAG_HOMING_ENABLE; }
@@ -290,9 +329,14 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
       case 25: settings.homing_seek_rate = value; break;
       case 26: settings.homing_debounce_delay = int_value; break;
       case 27: settings.homing_pulloff = value; break;
-      case 28: settings.pwm_mode = value; spindle_init(value);break;
-      case 30: settings.rpm_max = value; spindle_init(); break; // Re-initialize spindle rpm calibration
-      case 31: settings.rpm_min = value; spindle_init(); break; // Re-initialize spindle rpm calibration
+      //
+      case 28: settings.pwm_mode = value; spindle_init(value);break;//new pwm laser mode
+
+      //
+      //case 30: settings.rpm_max = value; spindle_init(); break; // Re-initialize spindle rpm calibration
+      //case 31: settings.rpm_min = value; spindle_init(); break; // Re-initialize spindle rpm calibration
+      case 30: settings.rpm_max = value; spindle_init(settings.pwm_mode); break; // Re-initialize spindle rpm calibration
+      case 31: settings.rpm_min = value; spindle_init(settings.pwm_mode); break; // Re-initialize spindle rpm calibration
       case 32:
         #ifdef VARIABLE_SPINDLE
           if (int_value) { settings.flags |= BITFLAG_LASER_MODE; }
@@ -301,6 +345,21 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
 				return(STATUS_SETTING_DISABLED_LASER);
         #endif
         break;
+
+      case 40:  settings.n_pieces = int_value; break;
+      case 41:  settings.rpm_max_s = value; break;
+      case 42:  settings.rpm_min_s = value; break;
+      case 43:  settings.rpm_point = value; break;
+      case 44:  settings.rpm_point23 = value; break;
+      case 45:  settings.rpm_point34 = value; break;
+      case 46:  settings.rpm_line_a1 = value; break;
+      case 47:  settings.rpm_line_b1 = value; break;
+      case 48:  settings.rpm_line_a2 = value; break;
+      case 49:  settings.rpm_line_b2 = value; break;
+      case 50:  settings.rpm_line_a3 = value; break;
+      case 51:  settings.rpm_line_b3 = value; break;
+      case 52:  settings.rpm_line_a4 = value; break;
+      case 53:  settings.rpm_line_b4 = value; break;
       default:
         return(STATUS_INVALID_STATEMENT);
     }

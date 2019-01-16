@@ -20,7 +20,7 @@
 */
 
 #include "grbl.h"
-
+#include <stbool.h> // added by Paul
 // Define line flags. Includes comment type tracking and line overflow detection.
 #define LINE_FLAG_OVERFLOW bit(0)
 #define LINE_FLAG_COMMENT_PARENTHESES bit(1)
@@ -80,13 +80,13 @@ void protocol_main_loop()
     // initial filtering by removing spaces and comments and capitalizing all letters.
     while((c = serial_read()) != SERIAL_NO_DATA) {
       if ((c == '\n') || (c == '\r')) { // End of line reached
-
         protocol_execute_realtime(); // Runtime command check point.
         if (sys.abort) { return; } // Bail to calling function upon system abort
 
         line[char_counter] = 0; // Set string termination character.
 #ifdef LEDBLINK
 				LedBlink();
+
 #endif
 				#ifdef REPORT_ECHO_LINE_RECEIVED
           report_echo_line_received(line);
@@ -98,7 +98,7 @@ void protocol_main_loop()
           report_status_message(STATUS_OVERFLOW);
         } else if (line[0] == 0) {
           // Empty or comment line. For syncing purposes.
-          report_status_message(STATUS_OK);
+          //report_status_message(STATUS_OK);//Paul, 13/01/19 no need to ouput Ok
         } else if (line[0] == '$') {
           // Grbl '$' system command
           report_status_message(system_execute_line(line));
@@ -329,8 +329,9 @@ void protocol_exec_rt_system()
         if (sys.state == STATE_ALARM) { sys.suspend |= (SUSPEND_RETRACT_COMPLETE|SUSPEND_HOLD_COMPLETE); }
         sys.state = STATE_SLEEP; 
       }
-
-      system_clear_exec_state_flag((EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP));
+      //fix Paul 12/01/19
+      system_clear_exec_state_flag(rt_exec & (EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP));
+      //system_clear_exec_state_flag((EXEC_MOTION_CANCEL | EXEC_FEED_HOLD | EXEC_SAFETY_DOOR | EXEC_SLEEP));
     }
 
     // Execute a cycle start by starting the stepper interrupt to begin executing the blocks in queue.
@@ -413,7 +414,7 @@ void protocol_exec_rt_system()
   if (rt_exec) {
     system_clear_exec_motion_overrides(); // Clear all motion override flags.
 
-    uint8_t new_f_override =  sys.f_override;
+    uint16_t new_f_override =  sys.f_override;
     if (rt_exec & EXEC_FEED_OVR_RESET) { new_f_override = DEFAULT_FEED_OVERRIDE; }
     if (rt_exec & EXEC_FEED_OVR_COARSE_PLUS) { new_f_override += FEED_OVERRIDE_COARSE_INCREMENT; }
     if (rt_exec & EXEC_FEED_OVR_COARSE_MINUS) { new_f_override -= FEED_OVERRIDE_COARSE_INCREMENT; }
@@ -578,7 +579,7 @@ static void protocol_exec_rt_suspend()
               retract_waypoint = min(retract_waypoint,PARKING_TARGET);
             }
 
-            // Execute slow pull-out parking retract motion. Parking requires homing enabled, the
+            // Execute slow pull-out parking retract motion. Parking requires homing enab++++++++++++++++++++++++++++++++++++++++++++++++., the
             // current location not exceeding the parking target location, and laser mode disabled.
             // NOTE: State is will remain DOOR, until the de-energizing and retract is complete.
 						#ifdef ENABLE_PARKING_OVERRIDE_CONTROL
@@ -761,7 +762,6 @@ static void protocol_exec_rt_suspend()
 
       }
     }
-
     protocol_exec_rt_system();
 
   }

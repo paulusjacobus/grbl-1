@@ -55,37 +55,56 @@ void limits_init()
   #endif
 #endif
 #ifdef STM32F103C8
-	GPIO_InitTypeDef GPIO_InitStructure;
-	RCC_APB2PeriphClockCmd(RCC_LIMIT_PORT | RCC_APB2Periph_AFIO, ENABLE);
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_InitStructure.GPIO_Pin = LIMIT_MASK;
-	GPIO_Init(LIMIT_PORT, &GPIO_InitStructure);
+    /*
+     * Author Paul All AFIO GPIO pins are initialised together in one action to prevent
+     * IO issues. Apparently you cannot initialise pins on one port separately like Arduino
+     * Limits init is now performed in system_init()
+     *
+     */
+//	GPIO_InitTypeDef GPIO_InitStructure;
+//	RCC_APB2PeriphClockCmd(RCC_LIMIT_PORT | RCC_APB2Periph_AFIO, ENABLE);
+//	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;//GPIO_Speed_50MHz;
+//	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+//	GPIO_InitStructure.GPIO_Pin = LIMIT_MASK;
+//	GPIO_Init(LIMIT_PORT, &GPIO_InitStructure);
+	// debug
+	 // GPIO_PinLockConfig(LIMIT_PORT,LIMIT_MASK);
+    /*
+     * End
+     */
 
-	if (bit_istrue(settings.flags, BITFLAG_HARD_LIMIT_ENABLE))
-	{
-		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, X_LIMIT_BIT);
-		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, Y_LIMIT_BIT);
-		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, Z_LIMIT_BIT);
-
-		EXTI_InitTypeDef EXTI_InitStructure;
-		EXTI_InitStructure.EXTI_Line = LIMIT_MASK;    //
-		EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt; //Interrupt mode, optional values for the interrupt EXTI_Mode_Interrupt and event EXTI_Mode_Event.
-		EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
-		EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-		EXTI_Init(&EXTI_InitStructure);
-
-		NVIC_InitTypeDef NVIC_InitStructure;
-		NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn; //Enable keypad external interrupt channel
-		NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02; //Priority 2,
-		NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x02; //Sub priority 2
-		NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //Enable external interrupt channel
-		NVIC_Init(&NVIC_InitStructure);
-	}
-	else
-	{
-		limits_disable();
-	}
+//	if (bit_istrue(settings.flags, BITFLAG_HARD_LIMIT_ENABLE))
+//	{
+//		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, X_LIMIT_BIT);
+//		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, Y_LIMIT_BIT);
+//		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, Z_LIMIT_BIT);
+//		/*
+//		 * Author Paul
+//		 */
+//		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, A_LIMIT_BIT); // added 13/08/2018 Paul
+//		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, B_LIMIT_BIT); //
+//
+//		/* The EXTI line config is already done in the system.c routine sys_init() */
+//
+//		EXTI_InitTypeDef EXTI_InitStructure;
+//		EXTI_InitStructure.EXTI_Line = LIMIT_MASK;    // includes CONTROL_FAULT_BIT for DC Motor fault feedback
+//		EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt; //Interrupt mode, optional values for the interrupt EXTI_Mode_Interrupt and event EXTI_Mode_Event.
+//		EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
+//		EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+//		EXTI_Init(&EXTI_InitStructure);
+//
+//		NVIC_InitTypeDef NVIC_InitStructure;
+//		NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn; //Enable keypad external interrupt channel and DC motor fault feed back
+//		NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02; //Priority 2,
+//		NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03; //was Sub priority 2, now 3 since controls are 2
+//		NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //Enable external interrupt channel
+//		NVIC_Init(&NVIC_InitStructure);
+//
+//	}
+//	else
+//	{
+//		limits_disable();
+//	}
 #endif
 }
 
@@ -163,6 +182,18 @@ void EXTI15_10_IRQHandler(void)
 	{
 		EXTI_ClearITPendingBit(1 << Z_LIMIT_BIT);
 	}
+	if (EXTI_GetITStatus(1 << A_LIMIT_BIT) != RESET) // added limit switches for additional axis 13/08/2018
+	{
+		EXTI_ClearITPendingBit(1 << A_LIMIT_BIT);
+	}
+	if (EXTI_GetITStatus(1 << B_LIMIT_BIT) != RESET) // Test A, B axis
+	{
+		EXTI_ClearITPendingBit(1 << B_LIMIT_BIT);
+	}
+//	if (EXTI_GetITStatus(1 << CONTROL_FAULT_BIT) != RESET) // Test DC Motor Faults
+//	{
+//		EXTI_ClearITPendingBit(1 << CONTROL_FAULT_BIT);
+//	}
 	NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
 #endif
   // Ignore limit switches if already in an alarm state or in-process of executing an alarm.
@@ -238,7 +269,7 @@ void limits_go_home(uint8_t cycle_mask)
     // Initialize step pin masks
     step_pin[idx] = step_pin_mask[idx];
     #ifdef COREXY
-      if ((idx==A_MOTOR)||(idx==B_MOTOR)) { step_pin[idx] = (step_pin_mask[X_AXIS]| step_pin_mask[Y_AXIS]); }
+      if ((idx==X_MOTOR)||(idx==Y_MOTOR)) { step_pin[idx] = (step_pin_mask[X_AXIS]| step_pin_mask[Y_AXIS]); }
     #endif
 
     if (bit_istrue(cycle_mask,bit(idx))) {
@@ -267,11 +298,11 @@ void limits_go_home(uint8_t cycle_mask)
         #ifdef COREXY
           if (idx == X_AXIS) {
             int32_t axis_position = system_convert_corexy_to_y_axis_steps(sys_position);
-            sys_position[A_MOTOR] = axis_position;
-            sys_position[B_MOTOR] = -axis_position;
+            sys_position[X_MOTOR] = axis_position;
+            sys_position[Y_MOTOR] = -axis_position;
           } else if (idx == Y_AXIS) {
             int32_t axis_position = system_convert_corexy_to_x_axis_steps(sys_position);
-            sys_position[A_MOTOR] = sys_position[B_MOTOR] = axis_position;
+            sys_position[X_MOTOR] = sys_position[Y_MOTOR] = axis_position;
           } else {
             sys_position[Z_AXIS] = 0;
           }

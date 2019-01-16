@@ -44,22 +44,26 @@ static void report_util_axis_values(float *axis_value) {
   }
 }
 
-/*
+
 static void report_util_setting_string(uint8_t n) {
   serial_write(' ');
   serial_write('(');
   switch(n) {
     case 0: printPgmString(PSTR("stp pulse")); break;
-    case 1: printPgmString(PSTR("idl delay")); break; 
+    case 1: printPgmString(PSTR("idl delay")); break;
     case 2: printPgmString(PSTR("stp inv")); break;
     case 3: printPgmString(PSTR("dir inv")); break;
     case 4: printPgmString(PSTR("stp en inv")); break;
     case 5: printPgmString(PSTR("lim inv")); break;
     case 6: printPgmString(PSTR("prb inv")); break;
+    case 7: printPgmString(PSTR("ATC M6, pulse/ff")); break;
+    case 8: printPgmString(PSTR("ATC Tool Td, milliseconds")); break;
+    case 9: printPgmString(PSTR("ATC M6 Td, milliseconds")); break;
     case 10: printPgmString(PSTR("rpt")); break;
     case 11: printPgmString(PSTR("jnc dev")); break;
     case 12: printPgmString(PSTR("arc tol")); break;
     case 13: printPgmString(PSTR("rpt inch")); break;
+    case 19: printPgmString(PSTR("Softstart, milliseconds")); break;
     case 20: printPgmString(PSTR("sft lim")); break;
     case 21: printPgmString(PSTR("hrd lim")); break;
     case 22: printPgmString(PSTR("hm cyc")); break;
@@ -68,9 +72,11 @@ static void report_util_setting_string(uint8_t n) {
     case 25: printPgmString(PSTR("hm seek")); break;
     case 26: printPgmString(PSTR("hm delay")); break;
     case 27: printPgmString(PSTR("hm pulloff")); break;
+    case 28: printPgmString(PSTR("Spindle freq. 0 to 15")); break;
     case 30: printPgmString(PSTR("rpm max")); break;
     case 31: printPgmString(PSTR("rpm min")); break;
     case 32: printPgmString(PSTR("laser")); break;
+
     default:
       n -= AXIS_SETTINGS_START_VAL;
       uint8_t idx = 0;
@@ -78,7 +84,14 @@ static void report_util_setting_string(uint8_t n) {
         n -= AXIS_SETTINGS_INCREMENT;
         idx++;
       }
-      serial_write(n+'x');
+      //serial_write(n+'x');
+      switch (n) {
+        case 0: printPgmString(PSTR("x")); break;
+        case 1: printPgmString(PSTR("y")); break;
+        case 2: printPgmString(PSTR("z")); break;
+        case 3: printPgmString(PSTR("a")); break;
+        case 4: printPgmString(PSTR("b")); break;
+      }
       switch (idx) {
         case 0: printPgmString(PSTR(":stp/mm")); break;
         case 1: printPgmString(PSTR(":mm/min")); break;
@@ -87,14 +100,21 @@ static void report_util_setting_string(uint8_t n) {
       }
       break;
   }
-  report_util_comment_line_feed();
+  serial_write(')');
+  //printPgmString(PSTR("\r\n"));
+  report_util_line_feed();
 }
-*/
+
 
 static void report_util_uint8_setting(uint8_t n, int val) {
   report_util_setting_prefix(n);
   print_uint8_base10(val);
   report_util_line_feed(); // report_util_setting_string(n); 
+}
+static void report_util_uint32_setting(uint8_t n, uint32_t val) {
+  report_util_setting_prefix(n);
+  print_uint32_base10(val);
+  report_util_line_feed(); // report_util_setting_string(n);
 }
 static void report_util_float_setting(uint8_t n, float val, uint8_t n_decimal) {
   report_util_setting_prefix(n);
@@ -161,13 +181,15 @@ void report_feedback_message(uint8_t message_code)
     case MESSAGE_SLEEP_MODE:
       printPgmString(PSTR("Sleeping")); break;
   }
-  report_util_feedback_line_feed();
+  report_util_line_feed();
+  //report_util_feedback_line_feed();
 }
 
 
 // Welcome message
 void report_init_message()
 {
+  delay_ms(500);
   printPgmString(PSTR("\r\nGrbl " GRBL_VERSION " ['$' for help]\r\n"));
 }
 
@@ -188,10 +210,28 @@ void report_grbl_settings() {
   report_util_uint8_setting(4,bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE));
   report_util_uint8_setting(5,bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS));
   report_util_uint8_setting(6,bit_istrue(settings.flags,BITFLAG_INVERT_PROBE_PIN));
+  /*
+   * Author Paul, Added Tool, M6 duration settings
+   */
+  report_util_uint32_setting(7,settings.m6_ff);
+  report_util_setting_string(7);
+  report_util_uint32_setting(8,settings.tool_delay);
+  report_util_setting_string(8);
+  report_util_uint32_setting(9,settings.m6_delay);
+  report_util_setting_string(9);
+  /*
+   *
+   */
   report_util_uint8_setting(10,settings.status_report_mask);
   report_util_float_setting(11,settings.junction_deviation,N_DECIMAL_SETTINGVALUE);
   report_util_float_setting(12,settings.arc_tolerance,N_DECIMAL_SETTINGVALUE);
   report_util_uint8_setting(13,bit_istrue(settings.flags,BITFLAG_REPORT_INCHES));
+  /*
+   * Author Paul, Soft start spindle
+   */
+  report_util_uint32_setting(19,settings.soft_start);
+  report_util_setting_string(19);
+  //
   report_util_uint8_setting(20,bit_istrue(settings.flags,BITFLAG_SOFT_LIMIT_ENABLE));
   report_util_uint8_setting(21,bit_istrue(settings.flags,BITFLAG_HARD_LIMIT_ENABLE));
   report_util_uint8_setting(22,bit_istrue(settings.flags,BITFLAG_HOMING_ENABLE));
@@ -200,7 +240,12 @@ void report_grbl_settings() {
   report_util_float_setting(25,settings.homing_seek_rate,N_DECIMAL_SETTINGVALUE);
   report_util_uint8_setting(26,settings.homing_debounce_delay);
   report_util_float_setting(27,settings.homing_pulloff,N_DECIMAL_SETTINGVALUE);
-  report_util_float_setting(28,settings.pwm_mode,N_DECIMAL_SETTINGVALUE);
+  /*
+   * Author Paul Add pwm frequency and tool change toggle delay
+   */
+  report_util_float_setting(28,settings.pwm_mode,N_DECIMAL_RPMVALUE);
+  report_util_setting_string(28);
+  //
   report_util_float_setting(30,settings.rpm_max,N_DECIMAL_RPMVALUE);
   report_util_float_setting(31,settings.rpm_min,N_DECIMAL_RPMVALUE);
   #ifdef VARIABLE_SPINDLE
@@ -208,20 +253,49 @@ void report_grbl_settings() {
   #else
     report_util_uint8_setting(32,0);
   #endif
-  // Print axis settings
+//    report_util_uint8_setting(40,settings.n_pieces);
+//    report_util_setting_string(40);
+//    report_util_float_setting(41,settings.rpm_max_s,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(41);
+//    report_util_float_setting(42,settings.rpm_min_s,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(42);
+//    report_util_float_setting(43,settings.rpm_point,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(43);
+//    report_util_float_setting(44,settings.rpm_point23,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(44);
+//    report_util_float_setting(45,settings.rpm_point34,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(45);
+//    report_util_float_setting(46,settings.rpm_line_a1,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(46);
+//    report_util_float_setting(47,settings.rpm_line_b1,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(47);
+//    report_util_float_setting(48,settings.rpm_line_a2,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(48);
+//    report_util_float_setting(49,settings.rpm_line_b2,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(49);
+//    report_util_float_setting(50,settings.rpm_line_a3,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(50);
+//    report_util_float_setting(51,settings.rpm_line_b3,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(51);
+//    report_util_float_setting(52,settings.rpm_line_a4,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(52);
+//    report_util_float_setting(53,settings.rpm_line_b4,N_DECIMAL_SETTINGVALUE);
+//    report_util_setting_string(53);
+    // Print axis settings
   uint8_t idx, set_idx;
   uint8_t val = AXIS_SETTINGS_START_VAL;
   for (set_idx=0; set_idx<AXIS_N_SETTINGS; set_idx++) {
     for (idx=0; idx<N_AXIS; idx++) {
       switch (set_idx) {
-        case 0: report_util_float_setting(val+idx,settings.steps_per_mm[idx],N_DECIMAL_SETTINGVALUE); break;
-        case 1: report_util_float_setting(val+idx,settings.max_rate[idx],N_DECIMAL_SETTINGVALUE); break;
-        case 2: report_util_float_setting(val+idx,settings.acceleration[idx]/(60*60),N_DECIMAL_SETTINGVALUE); break;
-        case 3: report_util_float_setting(val+idx,-settings.max_travel[idx],N_DECIMAL_SETTINGVALUE); break;
+        case 0: report_util_float_setting(val+idx,settings.steps_per_mm[idx],N_DECIMAL_SETTINGVALUE);report_util_setting_string(val+idx); break;
+        case 1: report_util_float_setting(val+idx,settings.max_rate[idx],N_DECIMAL_SETTINGVALUE);report_util_setting_string(val+idx); break;
+        case 2: report_util_float_setting(val+idx,settings.acceleration[idx]/(60*60),N_DECIMAL_SETTINGVALUE);report_util_setting_string(val+idx); break;
+        case 3: report_util_float_setting(val+idx,-settings.max_travel[idx],N_DECIMAL_SETTINGVALUE);report_util_setting_string(val+idx); break;
       }
     }
     val += AXIS_SETTINGS_INCREMENT;
   }
+
 }
 
 
@@ -251,6 +325,7 @@ void report_ngc_parameters()
       report_status_message(STATUS_SETTING_READ_FAIL);
       return;
     }
+
     printPgmString(PSTR("[G"));
     switch (coord_select) {
       case 6: printPgmString(PSTR("28")); break;
@@ -315,7 +390,16 @@ void report_gcode_modes()
     case SPINDLE_ENABLE_CCW : serial_write('4'); break;
     case SPINDLE_DISABLE : serial_write('5'); break;
   }
-
+  /*
+   * Author Paul, M6 state added
+   */
+  report_util_gcode_modes_M();
+    if (gc_state.modal.tool_enable) { // Note: Multiple tool states may be active at the same time.
+      if (gc_state.modal.tool_enable) { report_util_gcode_modes_M(); serial_write('6'); }
+    }
+	/*
+	 *  End
+	 */
   report_util_gcode_modes_M();
   #ifdef ENABLE_M7
     if (gc_state.modal.coolant) { // Note: Multiple coolant states may be active at the same time.
@@ -371,6 +455,12 @@ void report_execute_startup_message(char *line, uint8_t status_code)
 void report_build_info(char *line)
 {
   printPgmString(PSTR("[VER:" GRBL_VERSION "." GRBL_VERSION_BUILD ":"));
+  printString(line);
+  report_util_feedback_line_feed();
+  printPgmString(PSTR("[OEM:" GRBL_OEM " . " GRBL_PRODUCT ":"));
+  printString(line);
+  report_util_feedback_line_feed();
+  printPgmString(PSTR("[SER:" GRBL_SERIAL "." GRBL_SERIAL_BUILD ":"));
   printString(line);
   report_util_feedback_line_feed();
   printPgmString(PSTR("[OPT:")); // Generate compile-time build option list
@@ -575,6 +665,8 @@ void report_realtime_status()
       if (bit_istrue(lim_pin_state, bit(X_AXIS))) { serial_write('X'); }
       if (bit_istrue(lim_pin_state, bit(Y_AXIS))) { serial_write('Y'); }
       if (bit_istrue(lim_pin_state, bit(Z_AXIS))) { serial_write('Z'); }
+      if (bit_istrue(lim_pin_state, bit(A_AXIS))) { serial_write('A'); }
+      if (bit_istrue(lim_pin_state, bit(B_AXIS))) { serial_write('B'); }
     }
     if (ctrl_pin_state) {
 #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
@@ -583,6 +675,8 @@ void report_realtime_status()
       if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_RESET)) { serial_write('R'); }
       if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_FEED_HOLD)) { serial_write('H'); }
       if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_CYCLE_START)) { serial_write('S'); }
+      // Paul, added the additional fault report code 'F' for a DC motor fault
+      if (bit_istrue(ctrl_pin_state, CONTROL_PIN_INDEX_FAULT)) { serial_write('F'); } //Pauls added code
     }
   }
 #endif
@@ -590,6 +684,8 @@ void report_realtime_status()
 #ifdef REPORT_FIELD_WORK_COORD_OFFSET
   if (sys.report_wco_counter > 0) { sys.report_wco_counter--; }
   else {
+	if (sys.state & (STATE_JOG)){printPgmString(PSTR("|WCO:"));
+    report_util_axis_values(wco);};
     if (sys.state & (STATE_HOMING | STATE_CYCLE | STATE_HOLD | STATE_JOG | STATE_SAFETY_DOOR)) {
       sys.report_wco_counter = (REPORT_WCO_REFRESH_BUSY_COUNT - 1); // Reset counter for slow refresh
     }
@@ -647,6 +743,8 @@ void report_realtime_status()
 #ifdef DEBUG
   void report_realtime_debug()
   {
-
+	  printPgmString(PSTR("Debug value:"));
+	  print_uint8_base10(tool_get_state());
+	 //print_uint8_base10(sys.spindle_speed_ovr);
   }
 #endif

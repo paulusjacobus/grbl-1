@@ -38,6 +38,7 @@
 #define MODAL_GROUP_G6 6 // [G20,G21] Units
 #define MODAL_GROUP_G7 7 // [G40] Cutter radius compensation mode. G41/42 NOT SUPPORTED.
 #define MODAL_GROUP_G8 8 // [G43.1,G49] Tool length offset
+#define MODAL_GROUP_G10 99 // [G98, G99] return canned cycles
 #define MODAL_GROUP_G12 9 // [G54,G55,G56,G57,G58,G59] Coordinate system selection
 #define MODAL_GROUP_G13 10 // [G61] Control mode
 
@@ -54,6 +55,10 @@
 // to see how they are used, if you need to alter them.
 
 // Modal Group G0: Non-modal actions
+/*
+ * Paul; The codes below are used in case statements to define their functions
+ * assigned in the gcode parser step 1.
+ */
 #define NON_MODAL_NO_ACTION 0 // (Default: Must be zero)
 #define NON_MODAL_DWELL 4 // G4 (Do not alter value)
 #define NON_MODAL_SET_COORDINATE_DATA 10 // G10 (Do not alter value)
@@ -74,7 +79,22 @@
 #define MOTION_MODE_PROBE_TOWARD_NO_ERROR 141 // G38.3 (Do not alter value)
 #define MOTION_MODE_PROBE_AWAY 142 // G38.4 (Do not alter value)
 #define MOTION_MODE_PROBE_AWAY_NO_ERROR 143 // G38.5 (Do not alter value)
-#define MOTION_MODE_NONE 80 // G80 (Do not alter value)
+// Added threading here
+#define MOTION_MODE_THREAD 76 // G76 Threading Cycle, added by Paul
+// Default Grbl code
+#define MOTION_MODE_NONE 80 // G80 Cancel Canned Cycle
+// New Canned cycles added for SG, Paul
+#define MOTION_MODE_DRILL 81 // G81 Drilling Cycle
+#define MOTION_MODE_DRILLCF 82  // G82 Drilling Cycle, Dwell
+#define MOTION_MODE_DRILLPECK 83  // G83 Peck Drilling Cycle
+#define MOTION_MODE_TAP 84  // G84 Right-Hand Tapping Cycle
+#define MOTION_MODE_BORE 85  // G85 Boring Cycle, Feed Out
+#define MOTION_MODE_BRSRS 86  // G86 Boring Cycle, Spindle Stop, Rapid Move Out
+#define MOTION_MODE_BBORE 87  // G87 Back Boring Cycle
+#define MOTION_MODE_BOREDWELL 88  // G88 Boring Cycle, Spindle Stop, Manual Out
+#define MOTION_MODE_BRDWLLRTRCT 89  //G89 Boring Cycle, Dwell, Feed Out
+#define MOTION_MODE_OLDZ 98  //
+#define MOTION_MODE_RETRACT 99  //
 
 // Modal Group G2: Plane select
 #define PLANE_SELECT_XY 0 // G17 (Default: Must be zero)
@@ -109,6 +129,16 @@
 // Modal Group G13: Control mode
 #define CONTROL_MODE_EXACT_PATH 0 // G61 (Default: Must be zero)
 
+/*
+ * Author Paul
+ * Tn toggles the tool change GPIO pin n times
+ * M6 energises the tool enable GPIO pin TOOL_CHANGE_DELAY ms.
+ */
+// Modal Group M6: Tool change control
+#define TOOL_M6_DISABLE 0 // M6 (Default: Must be zero)
+#define TOOL_M6_ENABLE   PL_COND_FLAG_M6  // M6 (NOTE: Uses planner condition bit flag)
+#define TOOL_T_DISABLE 0 // M6 (Default: Must be zero)
+#define TOOL_T_ENABLE   PL_COND_FLAG_T // M6 (NOTE: Uses planner condition bit flag)
 // Modal Group M7: Spindle control
 #define SPINDLE_DISABLE 0 // M5 (Default: Must be zero)
 #define SPINDLE_ENABLE_CW   PL_COND_FLAG_SPINDLE_CW // M3 (NOTE: Uses planner condition bit flag)
@@ -149,6 +179,13 @@
 #define WORD_X  10
 #define WORD_Y  11
 #define WORD_Z  12
+#define WORD_A  13  // added axis A, B Paul 16/08/2018
+#define WORD_B  14  // See aliases
+#define WORD_E  15 // Paul, G76, Threading cycle words
+#define WORD_H  16 // Paul, G76, Threading cycle words
+#define WORD_Q  17 // Paul, G76, Threading cycle words
+#define WORD_U  13 // alias for A axis
+#define WORD_V  14 // alias for B axis
 
 // Define g-code parser position updating flags
 #define GC_UPDATE_POS_TARGET   0 // Must be zero
@@ -176,11 +213,11 @@
 #define GC_PARSER_LASER_FORCE_SYNC      bit(5)
 #define GC_PARSER_LASER_DISABLE         bit(6)
 #define GC_PARSER_LASER_ISMOTION        bit(7)
-
+#define GC_PARSER_M6_TOGGLE             bit(8)
 
 // NOTE: When this struct is zeroed, the above defines set the defaults for the system.
 typedef struct {
-  uint8_t motion;          // {G0,G1,G2,G3,G38.2,G80}
+  uint8_t motion;          // {G0,G1,G2,G3,G38.2,G80, canned cycles G81, G82,G83,G84,G85,G86,G87,G88,G89}
   uint8_t feed_rate;       // {G93,G94}
   uint8_t units;           // {G20,G21}
   uint8_t distance;        // {G90,G91}
@@ -193,20 +230,31 @@ typedef struct {
   uint8_t program_flow;    // {M0,M1,M2,M30}
   uint8_t coolant;         // {M7,M8,M9}
   uint8_t spindle;         // {M3,M4,M5}
-	uint8_t override;        // {M56}
+  /*
+   * Author Paul
+   * M6 tool change enable
+   */
+  uint8_t tool_enable;     // {M6}
+  uint8_t tool_change;     // [Tn}
+  /*
+   * End
+   */
+  uint8_t override;        // {M56}
 } gc_modal_t;
 
 typedef struct {
   float f;         // Feed
-  float ijk[3];    // I,J,K Axis arc offsets
+  float ijk[5];    // I,J,K Axis arc offsets was float ijk[3];
   uint8_t l;       // G10 or canned cycles parameters
   int32_t n;       // Line number
   float p;         // G10 or dwell parameters
-  // float q;      // G82 peck drilling
+  float q;         // G82 peck drilling, added Paul
+  float R;         // Paul: G81..89 R retract along axis perpendicular to the selected plane e.g. retract along Z axis if XY plane is chosen
   float r;         // Arc radius
   float s;         // Spindle speed
   uint8_t t;       // Tool selection
-  float xyz[3];    // X,Y,Z Translational axes
+  float xyz[5];    // X,Y,Z,A,B
+  //float xyz[3];    // X,Y,Z Translational axes 16/08/2018 Paul array of 5 instead
 } gc_values_t;
 
 
@@ -215,7 +263,7 @@ typedef struct {
 
   float spindle_speed;          // RPM
   float feed_rate;              // Millimeters/min
-  uint8_t tool;                 // Tracks tool number. NOT USED.
+  uint8_t tool;                 // Tracks tool number.
   int32_t line_number;          // Last line number sent
 
   float position[N_AXIS];       // Where the interpreter considers the tool to be at this point in the code
