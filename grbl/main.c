@@ -219,6 +219,8 @@ uint8_t setflagmessage = 0;
       */
     coolant_init();
     //limits_init(); //Done now in system_init(). 14/01/19 Paul
+    system_init();
+    // end
     probe_init();
     plan_reset(); // Clear block buffer and planner variables
     st_reset(); // Clear stepper subsystem variables.
@@ -240,13 +242,13 @@ uint8_t setflagmessage = 0;
      */
     if (GPIO_ReadInputDataBit(SERIALSWITCH_PORT, SERIALSWITCH_BIT) == 1){ //if the jumper is bridged->USB
 		while (Virtual_Com_port_IsHostPortOpen() == false){
-			delay_ms(1000);
+			delay_ms(500);
 			LedBlink();
 			}
 		}
     else { //Serial switch jumper is open ->USART
 		while (USART_GetFlagStatus(USART1, USART_FLAG_IDLE)== 0){
-			delay_ms(800);
+			delay_ms(250);
 			LedBlink();
 			}
     }
@@ -282,7 +284,7 @@ void _delay_ms(uint32_t x)
 
 
 
-void LedBlink(void)
+void LedBlink()
 {
 	static BitAction nOnFlag = Bit_SET;
 	GPIO_WriteBit(GPIOC, GPIO_Pin_13, nOnFlag); // C13 is connected to led which flashes to demonstrate the program is running
