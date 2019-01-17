@@ -5,6 +5,9 @@ _Click the `Release` tab to download pre-compiled `.hex` files or just [click he
 ***
 For the insights of ARM Grbl, please visit this page [click here] https://awesome.tech/grbl-demystified/
 
+-Github repo grbl-1 is for Coocoox CoIde compiler
+-Github repo grbl-2 is for Atollic compiler
+
 Grbl is a no-compromise, high performance, low cost alternative to parallel-port-based motion control for CNC milling. This version of Grbl runs on a STM32F10x processor. For the appropriate boards see our website https://awesome.tech/buy-gerbil/
 
 The controller is written in highly optimized C utilizing every clever feature of the STM32-chips to achieve precise timing and asynchronous operation. It is able to maintain up to 100kHz of stable, jitter free control pulses and PWM up to 80kHz. See specifications [click here] https://awesome.tech/new-super-gerbil-cnc/
