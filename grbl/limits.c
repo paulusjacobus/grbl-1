@@ -73,6 +73,8 @@ void limits_init()
      * End
      */
 
+    system_init(); // Take over the limits_init() routine
+
 //	if (bit_istrue(settings.flags, BITFLAG_HARD_LIMIT_ENABLE))
 //	{
 //		GPIO_EXTILineConfig(GPIO_LIMIT_PORT, X_LIMIT_BIT);
@@ -89,7 +91,12 @@ void limits_init()
 //		EXTI_InitTypeDef EXTI_InitStructure;
 //		EXTI_InitStructure.EXTI_Line = LIMIT_MASK;    // includes CONTROL_FAULT_BIT for DC Motor fault feedback
 //		EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt; //Interrupt mode, optional values for the interrupt EXTI_Mode_Interrupt and event EXTI_Mode_Event.
-//		EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
+//		//EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising_Falling; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
+//		if (bit_istrue(settings.flags, BITFLAG_INVERT_LIMIT_PINS )) { // for normally closed switches, we need to interrupt on the rising edge
+//			EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising ; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
+//		} else {
+//			EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling; //Trigger mode, can be a falling edge trigger EXTI_Trigger_Falling, the rising edge triggered EXTI_Trigger_Rising, or any level (rising edge and falling edge trigger EXTI_Trigger_Rising_Falling)
+//		}
 //		EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 //		EXTI_Init(&EXTI_InitStructure);
 //
